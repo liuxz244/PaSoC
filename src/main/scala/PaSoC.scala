@@ -12,10 +12,11 @@ class PaSoC extends Module {
     val io = IO(new Bundle {
         val exit = Output(Bool())
     })
-    val core   = Module(new PasoRV())
-    val memory = Module(new Memory())
-    core.io.imem <> memory.io.imem
-    core.io.dmem <> memory.io.dmem
+    val core = Module(new PasoRV)
+    val imem = Module(new ITCM())
+    val dmem = Module(new DSRM())
+    core.io.imem <> imem.io
+    core.io.dmem <> dmem.io
     io.exit := core.io.exit
 }
 
