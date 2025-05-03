@@ -1,0 +1,17 @@
+# 忽略 target 目录及其所有文件
+/target/
+
+# 忽略 test_run_dir 目录及其所有文件
+/test_run_dir/
+
+# 忽略所有目录下 prompt.txt 文件
+**/prompt.txt
+
+# 忽略所有 .v 文件
+*.v
+
+# 忽略所有 .sv 文件
+*.sv
+
+/project/project/
+/project/target/
