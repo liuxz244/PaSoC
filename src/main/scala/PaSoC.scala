@@ -2,6 +2,7 @@ package PaSoC
 
 import scala.FilePrepender._
 // 导入scala.sacla中的prependLine方法, 往生成的.sv添加启用mem初始化的定义
+import Consts._
 import chisel3._       // chisel本体
 import chisel3.util._  // chisel功能
 import _root_.circt.stage.ChiselStage  // 生成systemverilog
@@ -10,13 +11,31 @@ import sys.process._   // 使用linux命令
 
 class PaSoC extends Module {
     val io = IO(new Bundle {
-        val exit = Output(Bool())
+        val gpio    = new GPIOPortIO
+        val pwm     = Output(UInt(PWM_LEN.W))
+        val uart_tx = Output(Bool())
+        val exit    = Output(Bool())
     })
-    val core = Module(new PasoRV)
-    val imem = Module(new ITCM())
-    val dmem = Module(new DSRM())
+    val core    = Module(new PasoRV())
+    val imem    = Module(new ITCM(128))
+    val dmem    = Module(new DSRM(4096))
+    val gpio    = Module(new GPIOCtrl())
+    val pwm     = Module(new PWMCtrl())
+    val uart_tx = Module(new UartTxCtrl)
+    // 添加可配置外设数量的总线选择器
+    val dbus = Module(new DBusMux(4))
     core.io.imem <> imem.io
-    core.io.dmem <> dmem.io
+    core.io.dbus <> dbus.io.bus
+    // 将dmem连接到dbusMux第0个外设端口
+    dmem.io.bus    <> dbus.io.devs(0)
+    gpio.io.bus    <> dbus.io.devs(1)
+    pwm.io.bus     <> dbus.io.devs(2)
+    uart_tx.io.bus <> dbus.io.devs(3)
+    // 外设输入输出
+    gpio.io.gpio  <> io.gpio
+    pwm.io.pwm    <> io.pwm
+    uart_tx.io.tx <> io.uart_tx
+    // 程序结束标志
     io.exit := core.io.exit
 }
 
