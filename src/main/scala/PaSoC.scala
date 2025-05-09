@@ -11,30 +11,38 @@ import sys.process._   // 使用linux命令
 
 class PaSoC extends Module {
     val io = IO(new Bundle {
-        val gpio    = new GPIOPortIO
+        val inst_rx = Input(Bool())
+        val gpio    = new GPIOPortIO()
         val pwm     = Output(UInt(PWM_LEN.W))
         val uart_tx = Output(Bool())
+        val oled    = new OLEDLineIO()
         val exit    = Output(Bool())
     })
+
     val core    = Module(new PasoRV())
-    val imem    = Module(new ITCM(128))
-    val dmem    = Module(new DSRM(4096))
+    val imem    = Module(new ITCM(1024))
+    val dmem    = Module(new DTCM(4096))
     val gpio    = Module(new GPIOCtrl())
     val pwm     = Module(new PWMCtrl())
     val uart_tx = Module(new UartTxCtrl)
+    val oled    = Module(new OledCtrl())
+
     // 添加可配置外设数量的总线选择器
-    val dbus = Module(new DBusMux(4))
-    core.io.imem <> imem.io
+    val dbus = Module(new DBusMux(5))
+    core.io.ibus <> imem.io.bus
     core.io.dbus <> dbus.io.bus
     // 将dmem连接到dbusMux第0个外设端口
     dmem.io.bus    <> dbus.io.devs(0)
     gpio.io.bus    <> dbus.io.devs(1)
     pwm.io.bus     <> dbus.io.devs(2)
     uart_tx.io.bus <> dbus.io.devs(3)
+    oled.io.bus    <> dbus.io.devs(4)
     // 外设输入输出
+    imem.io.rx    <> io.inst_rx
     gpio.io.gpio  <> io.gpio
     pwm.io.pwm    <> io.pwm
     uart_tx.io.tx <> io.uart_tx
+    oled.io.oled  <> io.oled
     // 程序结束标志
     io.exit := core.io.exit
 }

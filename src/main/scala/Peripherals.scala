@@ -226,3 +226,82 @@ class UartTxCtrl extends Module {
         }
     }
 }
+
+
+// OLED显示内容输出外设，真正控制OLED屏幕的代码在Verilog模块库里
+class OledCtrl extends Module {
+    val io = IO(new Bundle {
+        val bus  = new DBusPortIO
+        val oled = new OLEDLineIO
+    })
+
+    // 计算地址偏移，相对基地址的索引，单位32位字
+    val addr_offset = (io.bus.addr - OLED_BASE_ADDR) >> 2  // 除以4字节，得到32位字索引
+
+    // 定义4行128位寄存器，初始全部0
+    val line0 = RegInit(0.U(128.W))
+    val line1 = RegInit(0.U(128.W))
+    val line2 = RegInit(0.U(128.W))
+    val line3 = RegInit(0.U(128.W))
+
+    // 写操作时更新对应32位，地址范围0~15（共16个32位段）
+    when (io.bus.wen && (io.bus.addr >= OLED_BASE_ADDR) && (io.bus.addr < OLED_BASE_ADDR + 64.U)) {
+        switch(addr_offset) {
+            // str_line0 高32位到低32位：offset 0~3
+            is(0.U) { line0 := Cat(io.bus.wdata, line0(95,0)) }
+            is(1.U) { line0 := Cat(line0(127,96), io.bus.wdata, line0(63,0)) }
+            is(2.U) { line0 := Cat(line0(127,64), io.bus.wdata, line0(31,0)) }
+            is(3.U) { line0 := Cat(line0(127,32), io.bus.wdata) }
+
+            // str_line1 高32位到低32位：offset 4~7
+            is(4.U) { line1 := Cat(io.bus.wdata, line1(95,0)) }
+            is(5.U) { line1 := Cat(line1(127,96), io.bus.wdata, line1(63,0)) }
+            is(6.U) { line1 := Cat(line1(127,64), io.bus.wdata, line1(31,0)) }
+            is(7.U) { line1 := Cat(line1(127,32), io.bus.wdata) }
+
+            // str_line2 高32位到低32位：offset 8~11
+            is(8.U) { line2 := Cat(io.bus.wdata, line2(95,0)) }
+            is(9.U) { line2 := Cat(line2(127,96), io.bus.wdata, line2(63,0)) }
+            is(10.U) { line2 := Cat(line2(127,64), io.bus.wdata, line2(31,0)) }
+            is(11.U) { line2 := Cat(line2(127,32), io.bus.wdata) }
+
+            // str_line3 高32位到低32位：offset 12~15
+            is(12.U) { line3 := Cat(io.bus.wdata, line3(95,0)) }
+            is(13.U) { line3 := Cat(line3(127,96), io.bus.wdata, line3(63,0)) }
+            is(14.U) { line3 := Cat(line3(127,64), io.bus.wdata, line3(31,0)) }
+            is(15.U) { line3 := Cat(line3(127,32), io.bus.wdata) }
+        }
+    }
+
+    // 读操作，根据地址返回对应32位
+    val read_data = WireDefault(0.U(WORD_LEN.W))
+    when((io.bus.addr >= OLED_BASE_ADDR) && (io.bus.addr < OLED_BASE_ADDR + 64.U)) {
+        switch(addr_offset) {
+            is(0.U)  { read_data := line0(127, 96)}
+            is(1.U)  { read_data := line0(95, 64) }
+            is(2.U)  { read_data := line0(63, 32) }
+            is(3.U)  { read_data := line0(31, 0)  }
+            is(4.U)  { read_data := line1(127, 96)}
+            is(5.U)  { read_data := line1(95, 64) }
+            is(6.U)  { read_data := line1(63, 32) }
+            is(7.U)  { read_data := line1(31, 0)  }
+            is(8.U)  { read_data := line2(127, 96)}
+            is(9.U)  { read_data := line2(95, 64) }
+            is(10.U) { read_data := line2(63, 32) }
+            is(11.U) { read_data := line2(31, 0)  }
+            is(12.U) { read_data := line3(127, 96)}
+            is(13.U) { read_data := line3(95, 64) }
+            is(14.U) { read_data := line3(63, 32) }
+            is(15.U) { read_data := line3(31, 0)  }
+        }
+    }
+
+    // 输出信号赋值
+    io.bus.rdata := read_data
+    io.bus.ready := io.bus.valid  // 简单模型，外设周期1个周期响应数据有效
+    io.oled.str_line0 := line0
+    io.oled.str_line1 := line1
+    io.oled.str_line2 := line2
+    io.oled.str_line3 := line3
+
+}

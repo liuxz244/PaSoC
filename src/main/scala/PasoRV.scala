@@ -10,7 +10,7 @@ import Consts._
 class PasoRV extends Module {
     val io = IO(
         new Bundle {
-            val imem = Flipped(new ImemPortIO())
+            val ibus = Flipped(new IBusPortIO())
             val dbus = Flipped(new DBusPortIO())
             val exit = Output(Bool())
         }
@@ -69,8 +69,7 @@ class PasoRV extends Module {
     // Instruction Fetch (IF) Stage
 
     val if_reg_pc = RegInit(START_ADDR)
-    io.imem.addr := if_reg_pc
-    val if_inst = io.imem.inst
+    val if_inst = io.ibus.inst
 
     val stall_hazard = Wire(Bool())  // 出现流水线数据冒险, 需要暂停流水线
     val stall_bus    = Wire(Bool())  // 从机未准备好响应，  需要暂停流水线
@@ -89,6 +88,7 @@ class PasoRV extends Module {
         stall_flg   -> if_reg_pc, // stall
     ))
     if_reg_pc := if_pc_next
+    io.ibus.addrb := if_pc_next  // 因为BRAM有延迟，提前发出下一周期的地址
 
 
     // IF/ID Register

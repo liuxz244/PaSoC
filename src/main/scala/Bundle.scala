@@ -4,16 +4,16 @@ import chisel3._       // chisel本体
 import Consts._
 
 
-class ImemPortIO extends Bundle {
-    val addr = Input( UInt(WORD_LEN.W))
-    val inst = Output(UInt(WORD_LEN.W))
+class IBusPortIO extends Bundle {
+    val addrb = Input( UInt(WORD_LEN.W))
+    val inst  = Output(UInt(WORD_LEN.W))
 }
 
 // 数据总线接口，方向是外设的视角
 class DBusPortIO extends Bundle {
     val valid = Input( Bool())  // 主机使能外设
     val addrb = Input( UInt(WORD_LEN.W))  // 在EX阶段提前发出的地址，用于读取有一周期延迟的bram,其余外设不应使用
-    val addr  = Input( UInt(WORD_LEN.W))  // 在MEM阶段发出的地址，和其它信号同步
+    val addr  = Input( UInt(WORD_LEN.W))  // 在MEM阶段发出的地址，和其它信号同步，是字节地址不是字地址
     val wen   = Input( Bool())  // 写使能
     val wdata = Input( UInt(WORD_LEN.W))  // 要写入外设的数据
     val rdata = Output(UInt(WORD_LEN.W))  // 从外设读到的数据
@@ -31,4 +31,11 @@ class CSRPortIO extends Bundle {
     val cmd   = Input( UInt(CSR_LEN.W))
     val wdata = Input( UInt(WORD_LEN.W))
     val rdata = Output(UInt(WORD_LEN.W))
+}
+
+class OLEDLineIO extends Bundle {
+    val str_line0 = Output(UInt(128.W))
+    val str_line1 = Output(UInt(128.W))
+    val str_line2 = Output(UInt(128.W))
+    val str_line3 = Output(UInt(128.W))
 }
