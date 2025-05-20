@@ -10,12 +10,12 @@ import Consts._
 class ITCM(val depth: Int) extends Module {
     val io = IO(new Bundle {
         val bus = new IBusPortIO()
-        val rx  = Input(Bool())    // UART RX引脚
+        val rx  = Input(Bool())  // UART RX引脚
     })
 
     // 1. 创建存储器
     val mem = SyncReadMem(depth, UInt(WORD_LEN.W))
-    loadMemoryFromFileInline(mem, "src/test/hex/ctest.hex")
+    loadMemoryFromFileInline(mem, "src/test/hex/sh.hex")
 
     // 2. 计算地址宽度
     val addrWidth = log2Ceil(depth)
@@ -148,29 +148,39 @@ class ITCM(val depth: Int) extends Module {
 }
 
 
-// 同步读数据存储器，可综合为BRAM
-class DTCM(val depth: Int) extends Module{  // 存储器模块
-    val io = IO(new Bundle{
+// 同步读数据存储器，可综合为BRAM，支持字节/半字写入
+class DTCM(val depth: Int) extends Module {
+    val io = IO(new Bundle {
         val bus = new DBusPortIO()
     })
-    
-    val mem = SyncReadMem(depth ,UInt(32.W))  // 生成32位宽存储器，可被综合为BRAM
+
+    val mem = SyncReadMem(depth, Vec(4, UInt(8.W)))
 
     // 计算地址位宽，地址作为字节地址，读写地址对齐为32位字（4字节），所以地址右移2位
-    val addrWidth = log2Ceil(depth)  // 地址位宽 = 内存深度的log2
+    val addrWidth = log2Ceil(depth)
 
-    // 在EX阶段提前发出的读取地址，因为SyncReadMem要等一周期才能取到数据
+    // 对应同步读取的数据地址（注意：SyncReadMem 读出数据延迟一个周期）
     val daddrb = Wire(UInt(addrWidth.W))
-    daddrb := io.bus.addrb(addrWidth + 1, 2) 
-
+    daddrb := io.bus.addrb(addrWidth + 1, 2)
+    // 写操作的地址
     val daddr = Wire(UInt(addrWidth.W))
     daddr := io.bus.addr(addrWidth + 1, 2)
 
-    io.bus.rdata := mem(daddrb)
+    // 读数据从内存读出的是 Vec(4, UInt(8.W))，需要重新拼接成 32 位 UInt
+    val rdataVec = mem.read(daddrb)
+    io.bus.rdata := Cat(rdataVec.reverse)  // 注意：vec(3)为最高字节，vec(0)为最低字节
+
+    // 同步 ready 信号
     io.bus.ready := io.bus.valid
-    
+
+    // 写操作：当写使能有效时，根据字节使能信号选择需要写入的字节
     when(io.bus.wen) {
-        mem(daddr) := io.bus.wdata
+        // 将32位写数据转换为 4 个8位数据 (注意：asTypeOf会按照低位分配到索引0，依次递增)
+        val wdataVec = io.bus.wdata.asTypeOf(Vec(4, UInt(8.W)))
+        // 将字节使能信号转换为布尔列表
+        // 注意：io.bus.ben 为 UInt(4.W)，其 1 表示对应位需要写入
+        val byteMask = io.bus.ben.asBools  // 例如：ben = "0011" => List(false, false, true, true)
+        mem.write(daddr, wdataVec, byteMask)
     }
 }
 

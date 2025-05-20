@@ -14,7 +14,8 @@ class DBusPortIO extends Bundle {
     val valid = Input( Bool())  // 主机使能外设
     val addrb = Input( UInt(WORD_LEN.W))  // 在EX阶段提前发出的地址，用于读取有一周期延迟的bram,其余外设不应使用
     val addr  = Input( UInt(WORD_LEN.W))  // 在MEM阶段发出的地址，和其它信号同步，是字节地址不是字地址
-    val wen   = Input( Bool())  // 写使能
+    val wen   = Input( Bool())     // 写使能
+    val ben   = Input( UInt(4.W))  // 字节使能
     val wdata = Input( UInt(WORD_LEN.W))  // 要写入外设的数据
     val rdata = Output(UInt(WORD_LEN.W))  // 从外设读到的数据
     val ready = Output(Bool())  // 外设读写完成，表示rdata有效
