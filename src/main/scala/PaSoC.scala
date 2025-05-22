@@ -16,6 +16,7 @@ class PaSoC extends Module {
         val pwm     = Output(UInt(PWM_LEN.W))
         val uart_tx = Output(Bool())
         val oled    = new OLEDLineIO()
+        val irq     = Input( Bool())
         val exit    = Output(Bool())
     })
 
@@ -43,8 +44,10 @@ class PaSoC extends Module {
     pwm.io.pwm    <> io.pwm
     uart_tx.io.tx <> io.uart_tx
     oled.io.oled  <> io.oled
-    // 程序结束标志
-    io.exit := core.io.exit
+    
+    core.io.irq := io.irq    // 连接外部中断
+    io.exit := core.io.exit  // 程序结束标志
+    
 }
 
 

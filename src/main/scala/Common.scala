@@ -18,6 +18,9 @@ object Consts {  // 常量定义
     val UART_TX_ADDR   = 0x30000000.U(WORD_LEN.W)
     val OLED_BASE_ADDR = 0x40000000.U(WORD_LEN.W)
 
+    val MIE  = 3.U(5.W)  // mstatus中MIE对应的bit位置
+    val MPIE = 7.U(5.W)  // mstatus中MPIE对应的bit位置
+
     val START_ADDR    = 0.U(WORD_LEN.W)
     val BUBBLE        = 0x00000013.U(WORD_LEN.W)  // [ADDI x0,x0,0] = BUBBLE
     val UNIMP         = "x_c0001073".U(WORD_LEN.W) // [CSRRW x0, cycle, x0]
@@ -102,6 +105,7 @@ object Consts {  // 常量定义
     val CSR_C   = 3.U(CSR_LEN.W)
     val CSR_E   = 4.U(CSR_LEN.W)
     val CSR_V   = 5.U(CSR_LEN.W)
+    val CSR_R   = 6.U(CSR_LEN.W)
 
     val LS_LEN = 3
     val LS_X   = 0.U(LS_LEN.W)
@@ -110,6 +114,7 @@ object Consts {  // 常量定义
     val LS_HU  = 2.U(LS_LEN.W)
     val LS_B   = 3.U(LS_LEN.W)
     val LS_BU  = 4.U(LS_LEN.W)
+
 }
 
 object Instructions {  // RISCV指令集 
@@ -178,6 +183,7 @@ object Instructions {  // RISCV指令集
 
     // 例外 | 异常
     val ECALL   = BitPat("b00000000000000000000000001110011")
+    val MRET    = BitPat("b00110000001000000000000001110011")
 
     // ベクトル | 向量
     val VSETVLI = BitPat("b?????????????????111?????1010111")

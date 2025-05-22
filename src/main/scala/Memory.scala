@@ -15,7 +15,7 @@ class ITCM(val depth: Int) extends Module {
 
     // 1. 创建存储器
     val mem = SyncReadMem(depth, UInt(WORD_LEN.W))
-    loadMemoryFromFileInline(mem, "src/test/hex/sh.hex")
+    loadMemoryFromFileInline(mem, "src/test/hex/irq.hex")
 
     // 2. 计算地址宽度
     val addrWidth = log2Ceil(depth)
@@ -182,20 +182,4 @@ class DTCM(val depth: Int) extends Module {
         val byteMask = io.bus.ben.asBools  // 例如：ben = "0011" => List(false, false, true, true)
         mem.write(daddr, wdataVec, byteMask)
     }
-}
-
-
-// CSR寄存器
-class CSRFile extends Module {
-  val io = IO(new CSRPortIO)
-
-  val csr_regfile = SyncReadMem(4096, UInt(WORD_LEN.W))
-
-  // 读取操作
-  io.rdata := csr_regfile(io.addrb)
-
-  // 写操作，写命令类型为csr_cmd
-  when(io.cmd =/= 0.U) {
-    csr_regfile(io.addr) := io.wdata
-  }
 }

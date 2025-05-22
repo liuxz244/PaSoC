@@ -8,20 +8,25 @@ import Consts._
 
 
 class PasoRV extends Module {
-    val io = IO(
-        new Bundle {
-            val ibus = Flipped(new IBusPortIO())
-            val dbus = Flipped(new DBusPortIO())
-            val exit = Output(Bool())
-        }
-    )
+    val io = IO(new Bundle {
+        val ibus = Flipped(new IBusPortIO())
+        val dbus = Flipped(new DBusPortIO())
+        val irq  = Input( Bool())  // 中断
+        val exit = Output(Bool())
+    })
 
     val regfile = RegInit(VecInit((0 until 32).map { i =>
         if (i == 2) "h00000ff0".U(WORD_LEN.W) else 0.U(WORD_LEN.W)
     }))  // 寄存器sp(x2)初始化，作为堆栈指针被C语言调用
     
-    val csr = Module(new CSRFile())  // CSR寄存器模块
-    val trap_vector = RegInit(0.U(WORD_LEN.W))
+    // 只实现必须的几个CSR寄存器
+    //val mstatus = RegInit(0.U(WORD_LEN.W))  // 默认关闭MIE中断使能
+    //val mtvec   = RegInit(0.U(WORD_LEN.W))  // 需要程序自己设置中断函数入口
+    val mstatus = RegInit((1 << 3).U(WORD_LEN.W))  // 默认打开MIE中断使能
+    val mtvec   = RegInit("h00000018".U(WORD_LEN.W))  // 中断服务函数入口
+    val mepc    = RegInit(0.U(WORD_LEN.W))
+    val mcause  = RegInit(0.U(WORD_LEN.W))
+
 
     //**********************************
     // 流水线各级寄存器
@@ -69,36 +74,47 @@ class PasoRV extends Module {
 
 
     //**********************************
+    // Interrupt Signal Capture and Pipeline Flush
+    // 外部中断
+    val ext_irq = io.irq && (mstatus(MIE) === 1.U) // mstatus.MIE为bit3
+
+    // 中断返回指令
+    val is_mret = (mem_reg_csr_cmd === CSR_R)
+
+    //**********************************
     // Instruction Fetch (IF) Stage
 
     val if_reg_pc = RegInit(START_ADDR)
+    val if_pc_plus4 = if_reg_pc + 4.U(WORD_LEN.W)
     val if_inst = io.ibus.inst
 
     val stall_hazard = Wire(Bool())  // 出现流水线数据冒险, 需要暂停流水线
     val stall_bus    = Wire(Bool())  // 从机未准备好响应, 需要暂停流水线
-    val stall_flg     = Wire(Bool())
-    val exe_br_flg    = Wire(Bool())
-    val exe_br_target = Wire(UInt(WORD_LEN.W))
-    val exe_jmp_flg   = Wire(Bool())
-    val exe_alu_out   = Wire(UInt(WORD_LEN.W))
+    val stall_flg    = Wire(Bool())
+    val exe_br_flg   = Wire(Bool())
+    val exe_br_tag   = Wire(UInt(WORD_LEN.W))
+    val exe_jmp_flg  = Wire(Bool())
+    val exe_alu_out  = Wire(UInt(WORD_LEN.W))
+    val pc_redirect  = (ext_irq || exe_br_flg || exe_jmp_flg)
 
-    val if_pc_plus4 = if_reg_pc + 4.U(WORD_LEN.W)
     val if_pc_next = MuxCase(if_pc_plus4, Seq(
-        // 优先分支＞跳转＞异常＞流水线暂停
-        exe_br_flg  -> exe_br_target,
+        // 优先中断＞分支＞跳转＞异常＞流水线暂停
+        ext_irq  -> mtvec,  // mtvec应设置为中断处理函数的入口
+        exe_br_flg  -> exe_br_tag,
         exe_jmp_flg -> exe_alu_out,
-        (if_inst === ECALL) -> trap_vector,  // ECALL进异常处理向量地址
+        (if_inst === ECALL) -> mtvec,  // ECALL进异常处理向量地址
         stall_flg   -> if_reg_pc,  // 暂停时保持原PC
+        is_mret     -> mepc,  // 中断返回
     ))
     if_reg_pc := if_pc_next
     io.ibus.addrb := if_pc_next  // 因为BRAM有延迟，提前发出下一周期的地址
 
 
     // IF/ID流水线寄存器
-    id_reg_pc   := Mux(stall_flg, id_reg_pc, if_reg_pc)
+    id_reg_pc   := Mux(stall_flg, id_reg_pc, Mux(pc_redirect, exe_reg_pc, if_reg_pc))
     id_reg_inst := MuxCase(if_inst, Seq(
         // 分支/跳转优先将旧指令清空，否则在stall时保持
-        (exe_br_flg || exe_jmp_flg) -> BUBBLE,
+        pc_redirect -> BUBBLE,
         stall_flg -> id_reg_inst, 
     ))
 
@@ -116,7 +132,7 @@ class PasoRV extends Module {
     stall_hazard := (id_rs1_data_hazard || id_rs2_data_hazard)
 
     // 分支/跳转时清空旧指令
-    val id_inst = Mux((exe_br_flg || exe_jmp_flg || stall_hazard), BUBBLE, id_reg_inst)  
+    val id_inst = Mux((pc_redirect || stall_hazard), BUBBLE, id_reg_inst)  
 
     val id_rs1_addr = id_inst(19, 15)
     val id_rs2_addr = id_inst(24, 20)
@@ -196,7 +212,8 @@ class PasoRV extends Module {
             CSRRSI-> List(ALU_COPY1, OP1_IMZ, OP2_X  , MEN_X, REN_S, WB_CSR, LS_X , CSR_S),
             CSRRC -> List(ALU_COPY1, OP1_RS1, OP2_X  , MEN_X, REN_S, WB_CSR, LS_X , CSR_C),
             CSRRCI-> List(ALU_COPY1, OP1_IMZ, OP2_X  , MEN_X, REN_S, WB_CSR, LS_X , CSR_C),
-            ECALL -> List(ALU_X    , OP1_X  , OP2_X  , MEN_X, REN_X, WB_X  , LS_X , CSR_E)
+            ECALL -> List(ALU_X    , OP1_X  , OP2_X  , MEN_X, REN_X, WB_X  , LS_X , CSR_E),
+            MRET  -> List(ALU_X    , OP1_X  , OP2_X  , MEN_X, REN_X, WB_X  , LS_X , CSR_R)
             )
         )
     val id_alu_fnc :: id_op1_sel :: id_op2_sel :: id_mem_wen :: id_rf_wen :: id_wb_sel :: id_mem_width :: id_csr_cmd :: Nil = csignals
@@ -220,7 +237,7 @@ class PasoRV extends Module {
 
     // ID/EX register
     when(!stall_bus) {
-        exe_reg_pc         := id_reg_pc
+        exe_reg_pc := Mux(pc_redirect, exe_reg_pc, id_reg_pc)
         exe_reg_inst       := id_inst
         exe_reg_op1_data   := id_op1_data
         exe_reg_op2_data   := id_op2_data
@@ -265,29 +282,29 @@ class PasoRV extends Module {
         (exe_reg_alu_fnc === BR_BLTU) ->  (exe_reg_op1_data < exe_reg_op2_data),
         (exe_reg_alu_fnc === BR_BGEU) -> !(exe_reg_op1_data < exe_reg_op2_data)
     ))
-    exe_br_target := exe_reg_pc + exe_reg_imm_b_sext
+    exe_br_tag := exe_reg_pc + exe_reg_imm_b_sext
 
     exe_jmp_flg := (exe_reg_wb_sel === WB_PC)
 
 
     // 由于BRAM的读取有一周期延迟，需要提前发出地址
     io.dbus.addrb := exe_alu_out
-    csr.io.addrb  := exe_reg_csr_addr
 
     // EX/MEM register
-    when(!stall_bus) {
-        mem_reg_pc        := exe_reg_pc
-        mem_reg_inst      := exe_reg_inst
-        mem_reg_wb_addr   := exe_reg_wb_addr
-        mem_reg_alu_out   := exe_alu_out
-        mem_reg_rf_wen    := exe_reg_rf_wen
-        mem_reg_wb_sel    := exe_reg_wb_sel
-        mem_reg_csr_addr  := exe_reg_csr_addr
-        mem_reg_csr_cmd   := exe_reg_csr_cmd
-        mem_reg_mem_wen   := exe_reg_mem_wen
-        mem_reg_op1_data  := exe_reg_op1_data
-        mem_reg_rs2_data  := exe_reg_rs2_data
-        mem_reg_mem_width := exe_reg_mem_width
+    when (!stall_bus) {
+        // 用mux选择是否冲刷流水线
+        mem_reg_pc        := Mux(ext_irq,  0.U,    exe_reg_pc       )
+        mem_reg_inst      := Mux(ext_irq,  BUBBLE, exe_reg_inst     )
+        mem_reg_wb_addr   := Mux(ext_irq,  0.U,    exe_reg_wb_addr  )
+        mem_reg_alu_out   := Mux(ext_irq,  0.U,    exe_alu_out      )
+        mem_reg_rf_wen    := Mux(ext_irq,  REN_X,  exe_reg_rf_wen   )
+        mem_reg_wb_sel    := Mux(ext_irq,  WB_X,   exe_reg_wb_sel   )
+        mem_reg_csr_addr  := Mux(ext_irq,  0.U,    exe_reg_csr_addr )
+        mem_reg_csr_cmd   := Mux(ext_irq,  CSR_X,  exe_reg_csr_cmd  )
+        mem_reg_mem_wen   := Mux(ext_irq,  MEN_X,  exe_reg_mem_wen  )
+        mem_reg_op1_data  := Mux(ext_irq,  0.U,    exe_reg_op1_data )
+        mem_reg_rs2_data  := Mux(ext_irq,  0.U,    exe_reg_rs2_data )
+        mem_reg_mem_width := Mux(ext_irq,  LS_X,   exe_reg_mem_width)
     }
     
 
@@ -303,10 +320,12 @@ class PasoRV extends Module {
     io.dbus.wen   := mem_reg_mem_wen === MEN_S
     io.dbus.wdata := mem_reg_rs2_data
 
-    csr.io.addr := mem_reg_csr_addr
-    csr.io.cmd  := mem_reg_csr_cmd
-    
-    val csr_rdata = csr.io.rdata
+    val csr_rdata = MuxCase(0.U(WORD_LEN.W), Seq(
+        (mem_reg_csr_addr === 0x300.U) -> mstatus,
+        (mem_reg_csr_addr === 0x305.U) -> mtvec,
+        (mem_reg_csr_addr === 0x341.U) -> mepc,
+        (mem_reg_csr_addr === 0x342.U) -> mcause
+    ))
 
     val csr_wdata = MuxCase(0.U(WORD_LEN.W), Seq(
         (mem_reg_csr_cmd === CSR_W) -> mem_reg_op1_data,
@@ -314,46 +333,46 @@ class PasoRV extends Module {
         (mem_reg_csr_cmd === CSR_C) -> (csr_rdata & ~mem_reg_op1_data),
         (mem_reg_csr_cmd === CSR_E) -> 11.U(WORD_LEN.W)
     ))
-    csr.io.wdata := csr_wdata
+    when(mem_reg_csr_cmd > 0.U){
+        switch(mem_reg_csr_addr) {
+            is(0x300.U) { mstatus := csr_wdata }
+            is(0x305.U) { mtvec   := csr_wdata }
+            is(0x341.U) { mepc    := csr_wdata }
+            is(0x342.U) { mcause  := csr_wdata }
+    }}  
 
-    when (mem_reg_csr_addr === 0x305.U && mem_reg_csr_cmd =/= 0.U) {
-        trap_vector := csr_wdata
-    }
-    
-    val dbus_rdata = Wire(UInt(WORD_LEN.W))  // 实现半字读写和字节读写
-    // 如果既不是半字，也不是字节操作，默认返回整个字及全使能信号
-    when ((mem_reg_mem_width =/= LS_H) && (mem_reg_mem_width =/= LS_HU) &&
-          (mem_reg_mem_width =/= LS_B) && (mem_reg_mem_width =/= LS_BU)) {
-        dbus_rdata := io.dbus.rdata
-        io.dbus.ben := "b1111".U(4.W)
-    } .otherwise {
-        // 判断是否为半字操作，以及是否采用符号扩展
-        val isHalf   = (mem_reg_mem_width === LS_H || mem_reg_mem_width === LS_HU)
-        val isSigned = (mem_reg_mem_width === LS_H || mem_reg_mem_width === LS_B)
-
-        when(isHalf) {
-            // 半字加载：根据地址第1位选择对应的16位数据
-            val halfData = Mux(mem_reg_alu_out(1), io.dbus.rdata(31,16), io.dbus.rdata(15,0))
-            // 若需要符号扩展，则先将16位有符号数延伸到32位，否则零扩展到32位
-            dbus_rdata := Mux(isSigned, halfData.asSInt.pad(32).asUInt, halfData.pad(32))
-        } .otherwise {
-            // 字节加载：用地址低2位选择对应的8位数据
-            val byteData = MuxLookup(mem_reg_alu_out(1,0), 0.U(8.W))(Seq(
-                "b00".U -> io.dbus.rdata(7,0),   "b01".U -> io.dbus.rdata(15,8),
-                "b10".U -> io.dbus.rdata(23,16), "b11".U -> io.dbus.rdata(31,24)
-            ))
-            // 对于LB指令：直接从8位数进行扩展，确保有符号扩展直接取自 bit7
-            dbus_rdata := Mux(isSigned, byteData.asSInt.pad(32).asUInt, byteData.pad(32))
-        }
-
-        // 字节使能信号
-        io.dbus.ben := Mux(isHalf, Mux(mem_reg_alu_out(1), "b1100".U(4.W), "b0011".U(4.W)),
-            MuxLookup(mem_reg_alu_out(1,0), "b1111".U(4.W))(Seq(
-                "b00".U -> "b0001".U(4.W), "b01".U -> "b0010".U(4.W),
-                "b10".U -> "b0100".U(4.W), "b11".U -> "b1000".U(4.W)
-        )))
+    // 外部中断处理
+    when (ext_irq) { // 保存异常现场
+        mepc    := mem_reg_pc // 发生中断时EX阶段的指令被抛弃
+        mcause  := "h8000000b".U  // 异步中断，11，最高位为1
+        mstatus := mstatus.bitSet(MPIE, mstatus(MIE)).bitSet(MIE, false.B) // 关MIE
     }
 
+    // mret指令，中断返回: 据说是为了防止过早的判断与跳转/分支冲突，才放在MEM阶段
+    when(is_mret) {
+        mstatus := mstatus.bitSet(MIE, mstatus(MPIE)).bitSet(MPIE, true.B) // 恢复MIE
+    }
+
+    val isH  = (mem_reg_mem_width === LS_H || mem_reg_mem_width === LS_HU)
+    val isB  = (mem_reg_mem_width === LS_B || mem_reg_mem_width === LS_BU)
+    val isS  = (mem_reg_mem_width === LS_H || mem_reg_mem_width === LS_B)
+
+    val halfword = Mux(mem_reg_alu_out(1), io.dbus.rdata(31,16), io.dbus.rdata(15,0))
+    val byte  = MuxLookup(mem_reg_alu_out(1,0), 0.U(8.W))(Seq(
+        "b00".U -> io.dbus.rdata(7,0),   "b01".U -> io.dbus.rdata(15,8),
+        "b10".U -> io.dbus.rdata(23,16), "b11".U -> io.dbus.rdata(31,24)
+    ))
+
+    io.dbus.ben := Mux(isH, Mux(mem_reg_alu_out(1), "b1100".U, "b0011".U),
+        Mux(isB, MuxLookup(mem_reg_alu_out(1,0), "b0001".U)(Seq(
+            "b00".U -> "b0001".U, "b01".U -> "b0010".U,
+            "b10".U -> "b0100".U, "b11".U -> "b1000".U)
+        ), "b1111".U)
+    )
+
+    val dbus_rdata = Mux(isH, Mux(isS, halfword.asSInt.pad(32).asUInt, halfword.pad(32)),
+        Mux(isB, Mux(isS, byte.asSInt.pad(32).asUInt, byte.pad(32)), io.dbus.rdata)
+    )
 
     mem_wb_data := MuxCase(mem_reg_alu_out, Seq(
         (mem_reg_wb_sel === WB_MEM) -> dbus_rdata,

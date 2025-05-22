@@ -26,14 +26,6 @@ class GPIOPortIO() extends Bundle{
     val Out = Output(UInt(GPIO_LEN.W))  // 8位GPIO输出
 }
 
-class CSRPortIO extends Bundle {
-    val addrb = Input( UInt(CSR_ADDR_LEN.W))
-    val addr  = Input( UInt(CSR_ADDR_LEN.W))
-    val cmd   = Input( UInt(CSR_LEN.W))
-    val wdata = Input( UInt(WORD_LEN.W))
-    val rdata = Output(UInt(WORD_LEN.W))
-}
-
 class OLEDLineIO extends Bundle {
     val str_line0 = Output(UInt(128.W))
     val str_line1 = Output(UInt(128.W))
