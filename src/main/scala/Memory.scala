@@ -7,7 +7,7 @@ import Consts._
 
 
 // BRAM指令存储器 + UART接收写入
-class ITCM(val depth: Int) extends Module {
+class ITCM(val depth: Int, val initHex: String) extends Module {
     val io = IO(new Bundle {
         val bus = new IBusPortIO()
         val rx  = Input(Bool())  // UART RX引脚
@@ -15,7 +15,8 @@ class ITCM(val depth: Int) extends Module {
 
     // 1. 创建存储器
     val mem = SyncReadMem(depth, UInt(WORD_LEN.W))
-    loadMemoryFromFileInline(mem, "src/test/hex/irq.hex")
+    val initInst = "src/test/hex/inst/" + initHex  // 拼接完整路径
+    loadMemoryFromFileInline(mem, initInst)  // 初始化内存
 
     // 2. 计算地址宽度
     val addrWidth = log2Ceil(depth)
@@ -25,6 +26,7 @@ class ITCM(val depth: Int) extends Module {
     iaddrb := Mux(reset.asBool, 0.U, io.bus.addrb(addrWidth + 1, 2))
     io.bus.inst := mem(iaddrb)
 
+    
     // ------------------------------
     // 4. UART 接收器实现
     // ------------------------------
@@ -144,42 +146,47 @@ class ITCM(val depth: Int) extends Module {
         writeAddr := writeAddr + 1.U   // 写地址递增
         byteCount := 0.U               // 重置计数
     }
-
+    
 }
 
 
 // 同步读数据存储器，可综合为BRAM，支持字节/半字写入
-class DTCM(val depth: Int) extends Module {
+class DTCM(val depth: Int, initHex: String) extends Module {
     val io = IO(new Bundle {
         val bus = new DBusPortIO()
     })
 
-    val mem = SyncReadMem(depth, Vec(4, UInt(8.W)))
+    val mem = SyncReadMem(depth, UInt(32.W))  // 定义BRAM存储器
+    val initData = "src/test/hex/data/" + initHex  // 拼接完整路径
+    loadMemoryFromFileInline(mem, initData)  //初始化内存
 
-    // 计算地址位宽，地址作为字节地址，读写地址对齐为32位字（4字节），所以地址右移2位
     val addrWidth = log2Ceil(depth)
 
-    // 对应同步读取的数据地址（注意：SyncReadMem 读出数据延迟一个周期）
+    // 地址按字对齐（4字节对齐），去掉低2位，取有效的地址宽度
     val daddrb = Wire(UInt(addrWidth.W))
     daddrb := io.bus.addrb(addrWidth + 1, 2)
-    // 写操作的地址
     val daddr = Wire(UInt(addrWidth.W))
     daddr := io.bus.addr(addrWidth + 1, 2)
 
-    // 读数据从内存读出的是 Vec(4, UInt(8.W))，需要重新拼接成 32 位 UInt
-    val rdataVec = mem.read(daddrb)
-    io.bus.rdata := Cat(rdataVec.reverse)  // 注意：vec(3)为最高字节，vec(0)为最低字节
+    // 读操作（延迟被提前发出地址抵消了）
+    val rdata = mem.read(daddrb)
+    io.bus.rdata := rdata
 
-    // 同步 ready 信号
+    // ready 信号同步
     io.bus.ready := io.bus.valid
 
-    // 写操作：当写使能有效时，根据字节使能信号选择需要写入的字节
+    // 写操作：byte enable
+    val old = mem.read(daddrb)
     when(io.bus.wen) {
-        // 将32位写数据转换为 4 个8位数据 (注意：asTypeOf会按照低位分配到索引0，依次递增)
-        val wdataVec = io.bus.wdata.asTypeOf(Vec(4, UInt(8.W)))
-        // 将字节使能信号转换为布尔列表
-        // 注意：io.bus.ben 为 UInt(4.W)，其 1 表示对应位需要写入
-        val byteMask = io.bus.ben.asBools  // 例如：ben = "0011" => List(false, false, true, true)
-        mem.write(daddr, wdataVec, byteMask)
+        val oldBytes = old.asTypeOf(Vec(4, UInt(8.W)))
+        val newBytes = io.bus.wdata.asTypeOf(Vec(4, UInt(8.W)))
+        val ben = io.bus.ben.asBools // 低位对应索引0，高位索引3
+
+        val resultBytes = Wire(Vec(4, UInt(8.W)))
+        for (i <- 0 until 4) {
+            resultBytes(i) := Mux(ben(i), newBytes(i), oldBytes(i))
+        }
+
+        mem.write(daddr, resultBytes.asUInt)
     }
 }

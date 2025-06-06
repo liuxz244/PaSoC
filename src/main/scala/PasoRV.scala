@@ -9,23 +9,21 @@ import Consts._
 
 class PasoRV extends Module {
     val io = IO(new Bundle {
-        val ibus = Flipped(new IBusPortIO())
-        val dbus = Flipped(new DBusPortIO())
-        val irq  = Input( Bool())  // 中断
-        val exit = Output(Bool())
+        val ibus  = Flipped(new IBusPortIO())
+        val dbus  = Flipped(new DBusPortIO())
+        val plic  = Input( Bool())  // 外部中断
+        val clint = Input( Bool())  // 定时器中断
+        val exit  = Output(Bool())
     })
 
-    val regfile = RegInit(VecInit((0 until 32).map { i =>
-        if (i == 2) "h00000ff0".U(WORD_LEN.W) else 0.U(WORD_LEN.W)
-    }))  // 寄存器sp(x2)初始化，作为堆栈指针被C语言调用
-    
+    val regfile = RegInit(VecInit(Seq.fill(32)(0.U(32.W))))  // rv32i的32个寄存器
+
     // 只实现必须的几个CSR寄存器
-    //val mstatus = RegInit(0.U(WORD_LEN.W))  // 默认关闭MIE中断使能
-    //val mtvec   = RegInit(0.U(WORD_LEN.W))  // 需要程序自己设置中断函数入口
-    val mstatus = RegInit((1 << 3).U(WORD_LEN.W))  // 默认打开MIE中断使能
-    val mtvec   = RegInit("h00000018".U(WORD_LEN.W))  // 中断服务函数入口
-    val mepc    = RegInit(0.U(WORD_LEN.W))
-    val mcause  = RegInit(0.U(WORD_LEN.W))
+    val mstatus  = RegInit(0.U(WORD_LEN.W))  // 中断状态，默认关闭MIE中断使能
+    val mtvec    = RegInit(0.U(WORD_LEN.W))  // 需要程序自己设置中断函数入口
+    val mepc     = RegInit(0.U(WORD_LEN.W))  // 保持终端前正在处理的pc(MEM阶段)
+    val mcause   = RegInit(0.U(WORD_LEN.W))  // 产生中断的原因
+    val mie      = RegInit(0.U(WORD_LEN.W))  // 中断使能寄存器
 
 
     //**********************************
@@ -69,17 +67,29 @@ class PasoRV extends Module {
     val wb_reg_pc          = RegInit(0.U(WORD_LEN.W))
     val wb_reg_inst        = RegInit(0.U(WORD_LEN.W))
     val wb_reg_wb_addr     = RegInit(0.U(ADDR_LEN.W))
-    val wb_reg_rf_wen      = RegInit(0.U(REN_LEN.W))
+    val wb_reg_rf_wen      = RegInit(0.U(REN_LEN.W ))
     val wb_reg_wb_data     = RegInit(0.U(WORD_LEN.W))
 
 
     //**********************************
     // Interrupt Signal Capture and Pipeline Flush
-    // 外部中断
-    val ext_irq = io.irq && (mstatus(MIE) === 1.U) // mstatus.MIE为bit3
+
+    val timer_irq_pending = io.clint  // 定时器中断标志
+    val timer_irq_enable  = mie(MTIE) === 1.U  // 是否启用定时器中断
+    val timer_irq = timer_irq_pending && timer_irq_enable && (mstatus(MIE) === 1.U) // MTIE&全局MIE
+
+    val ext_irq_pending = io.plic  // 外部中断标志
+    val ext_irq_enable = mie(MEIE) === 1.U  // 是否启用外部中断
+    val ext_irq = ext_irq_pending && ext_irq_enable && (mstatus(MIE) === 1.U)
+
+    // 优先级，定时器高于外部
+    val irq_pending = timer_irq || ext_irq
+    val take_timer_irq = timer_irq
+    val take_ext_irq   = (!timer_irq) && ext_irq
 
     // 中断返回指令
     val is_mret = (mem_reg_csr_cmd === CSR_R)
+
 
     //**********************************
     // Instruction Fetch (IF) Stage
@@ -95,16 +105,16 @@ class PasoRV extends Module {
     val exe_br_tag   = Wire(UInt(WORD_LEN.W))
     val exe_jmp_flg  = Wire(Bool())
     val exe_alu_out  = Wire(UInt(WORD_LEN.W))
-    val pc_redirect  = (ext_irq || exe_br_flg || exe_jmp_flg)
 
+    val pc_redirect  = (irq_pending || exe_br_flg || exe_jmp_flg)
     val if_pc_next = MuxCase(if_pc_plus4, Seq(
         // 优先中断＞分支＞跳转＞异常＞流水线暂停
-        ext_irq  -> mtvec,  // mtvec应设置为中断处理函数的入口
+        irq_pending -> mtvec,  // mtvec应设置为中断处理函数的入口
         exe_br_flg  -> exe_br_tag,
         exe_jmp_flg -> exe_alu_out,
+        is_mret     -> mepc,  // 中断返回
         (if_inst === ECALL) -> mtvec,  // ECALL进异常处理向量地址
         stall_flg   -> if_reg_pc,  // 暂停时保持原PC
-        is_mret     -> mepc,  // 中断返回
     ))
     if_reg_pc := if_pc_next
     io.ibus.addrb := if_pc_next  // 因为BRAM有延迟，提前发出下一周期的地址
@@ -315,47 +325,17 @@ class PasoRV extends Module {
     stall_bus := mem_access && !io.dbus.ready  // 若为访存操作且DBus尚未返回响应, 则产生总线等待
     stall_flg := stall_hazard || stall_bus    // 全局暂停信号由数据冒险及访存等待联合产生
 
-    io.dbus.valid := mem_access
-    io.dbus.addr  := mem_reg_alu_out
-    io.dbus.wen   := mem_reg_mem_wen === MEN_S
-    io.dbus.wdata := mem_reg_rs2_data
-
-    val csr_rdata = MuxCase(0.U(WORD_LEN.W), Seq(
-        (mem_reg_csr_addr === 0x300.U) -> mstatus,
-        (mem_reg_csr_addr === 0x305.U) -> mtvec,
-        (mem_reg_csr_addr === 0x341.U) -> mepc,
-        (mem_reg_csr_addr === 0x342.U) -> mcause
-    ))
-
-    val csr_wdata = MuxCase(0.U(WORD_LEN.W), Seq(
-        (mem_reg_csr_cmd === CSR_W) -> mem_reg_op1_data,
-        (mem_reg_csr_cmd === CSR_S) -> (csr_rdata | mem_reg_op1_data),
-        (mem_reg_csr_cmd === CSR_C) -> (csr_rdata & ~mem_reg_op1_data),
-        (mem_reg_csr_cmd === CSR_E) -> 11.U(WORD_LEN.W)
-    ))
-    when(mem_reg_csr_cmd > 0.U){
-        switch(mem_reg_csr_addr) {
-            is(0x300.U) { mstatus := csr_wdata }
-            is(0x305.U) { mtvec   := csr_wdata }
-            is(0x341.U) { mepc    := csr_wdata }
-            is(0x342.U) { mcause  := csr_wdata }
-    }}  
-
-    // 外部中断处理
-    when (ext_irq) { // 保存异常现场
-        mepc    := mem_reg_pc // 发生中断时EX阶段的指令被抛弃
-        mcause  := "h8000000b".U  // 异步中断，11，最高位为1
-        mstatus := mstatus.bitSet(MPIE, mstatus(MIE)).bitSet(MIE, false.B) // 关MIE
-    }
-
-    // mret指令，中断返回: 据说是为了防止过早的判断与跳转/分支冲突，才放在MEM阶段
-    when(is_mret) {
-        mstatus := mstatus.bitSet(MIE, mstatus(MPIE)).bitSet(MPIE, true.B) // 恢复MIE
-    }
-
     val isH  = (mem_reg_mem_width === LS_H || mem_reg_mem_width === LS_HU)
     val isB  = (mem_reg_mem_width === LS_B || mem_reg_mem_width === LS_BU)
     val isS  = (mem_reg_mem_width === LS_H || mem_reg_mem_width === LS_B)
+    val word_wdata  = mem_reg_rs2_data            // 对应SW
+    val half_wdata  = Fill(2, word_wdata(15, 0))  // 对应SH
+    val byte_wdata  = Fill(4, word_wdata(7, 0))   // 对应SB
+    
+    io.dbus.valid := mem_access
+    io.dbus.addr  := mem_reg_alu_out
+    io.dbus.wen   := mem_reg_mem_wen === MEN_S
+    io.dbus.wdata := Mux(isB, byte_wdata, Mux(isH, half_wdata, word_wdata))
 
     val halfword = Mux(mem_reg_alu_out(1), io.dbus.rdata(31,16), io.dbus.rdata(15,0))
     val byte  = MuxLookup(mem_reg_alu_out(1,0), 0.U(8.W))(Seq(
@@ -374,11 +354,53 @@ class PasoRV extends Module {
         Mux(isB, Mux(isS, byte.asSInt.pad(32).asUInt, byte.pad(32)), io.dbus.rdata)
     )
 
+
+    val csr_rdata = MuxCase(0.U(WORD_LEN.W), Seq(
+        (mem_reg_csr_addr === 0x300.U) -> mstatus,
+        (mem_reg_csr_addr === 0x304.U) -> mie,
+        (mem_reg_csr_addr === 0x305.U) -> mtvec,
+        (mem_reg_csr_addr === 0x341.U) -> mepc,
+        (mem_reg_csr_addr === 0x342.U) -> mcause,
+    ))
+
     mem_wb_data := MuxCase(mem_reg_alu_out, Seq(
         (mem_reg_wb_sel === WB_MEM) -> dbus_rdata,
         (mem_reg_wb_sel === WB_PC)  -> (mem_reg_pc + 4.U(WORD_LEN.W)),
         (mem_reg_wb_sel === WB_CSR) -> csr_rdata
     ))
+
+    val csr_wdata = MuxCase(0.U(WORD_LEN.W), Seq(
+        (mem_reg_csr_cmd === CSR_W) -> mem_reg_op1_data,
+        (mem_reg_csr_cmd === CSR_S) -> (csr_rdata | mem_reg_op1_data),
+        (mem_reg_csr_cmd === CSR_C) -> (csr_rdata & ~mem_reg_op1_data),
+        (mem_reg_csr_cmd === CSR_E) -> 11.U(WORD_LEN.W)
+    ))
+    
+    when(mem_reg_csr_cmd > 0.U){
+        switch(mem_reg_csr_addr) {
+            is(0x300.U) { mstatus  := csr_wdata }
+            is(0x304.U) { mie      := csr_wdata }
+            is(0x305.U) { mtvec    := csr_wdata }
+            is(0x341.U) { mepc     := csr_wdata }
+            is(0x342.U) { mcause   := csr_wdata }
+        }
+    }  
+
+    // 中断处理
+    when (irq_pending) { // 保存异常现场
+        mepc := mem_reg_pc // 发生中断时MEM及之前阶段的指令被抛弃
+        when(take_timer_irq) {
+            mcause := "h80000007".U // 定时器中断
+        }.elsewhen(take_ext_irq) {
+            mcause := "h8000000b".U // 外部中断
+        }
+        mstatus := mstatus.bitSet(MPIE, mstatus(MIE)).bitSet(MIE, false.B) // 关MIE
+    }
+
+    // mret指令，中断返回: 为防止过早的判断与跳转/分支冲突，才放在MEM阶段
+    when(is_mret) {
+        mstatus := mstatus.bitSet(MIE, mstatus(MPIE)).bitSet(MPIE, true.B) // 恢复MIE
+    }
 
 
     // MEM/WB regsiter
@@ -407,17 +429,21 @@ class PasoRV extends Module {
 
     //**********************************
     // IO & Debug
-    io.exit := (wb_reg_inst === UNIMP)
-    printf(p"if_reg_pc        : 0x${Hexadecimal(if_reg_pc)}\n")
-    printf(p"id_reg_pc        : 0x${Hexadecimal(id_reg_pc)}\n")
-    printf(p"exe_reg_pc       : 0x${Hexadecimal(exe_reg_pc)}\n")
-    printf(p"exe_reg_op1_data : 0x${Hexadecimal(exe_reg_op1_data)}\n")
-    printf(p"exe_reg_op2_data : 0x${Hexadecimal(exe_reg_op2_data)}\n")
-    printf(p"exe_alu_out      : 0x${Hexadecimal(exe_alu_out)}\n")
-    printf(p"mem_reg_pc       : 0x${Hexadecimal(mem_reg_pc)}\n")
-    printf(p"mem_wb_data      : 0x${Hexadecimal(mem_wb_data)}\n")
-    printf(p"wb_reg_pc        : 0x${Hexadecimal(wb_reg_pc)}\n")
-    printf(p"wb_reg_wb_data   : 0x${Hexadecimal(wb_reg_wb_data)}\n")
-    printf(p"wb_have_inst     : 0x${Hexadecimal(wb_have_inst)}\n")
-    printf("---------\n")
+    io.exit := (wb_reg_inst === UNIMP)  // 退出仿真
+
+    val debugEnabled = sys.env.getOrElse("PASORV_DEBUG", "0") == "1"
+    if (debugEnabled) {
+        printf(p"if_reg_pc        : 0x${Hexadecimal(if_reg_pc)}\n")
+        printf(p"id_reg_pc        : 0x${Hexadecimal(id_reg_pc)}\n")
+        printf(p"exe_reg_pc       : 0x${Hexadecimal(exe_reg_pc)}\n")
+        printf(p"exe_reg_op1_data : 0x${Hexadecimal(exe_reg_op1_data)}\n")
+        printf(p"exe_reg_op2_data : 0x${Hexadecimal(exe_reg_op2_data)}\n")
+        printf(p"exe_alu_out      : 0x${Hexadecimal(exe_alu_out)}\n")
+        printf(p"mem_reg_pc       : 0x${Hexadecimal(mem_reg_pc)}\n")
+        printf(p"mem_wb_data      : 0x${Hexadecimal(mem_wb_data)}\n")
+        printf(p"wb_reg_pc        : 0x${Hexadecimal(wb_reg_pc)}\n")
+        printf(p"wb_reg_wb_data   : 0x${Hexadecimal(wb_reg_wb_data)}\n")
+        printf(p"wb_have_inst     : 0x${Hexadecimal(wb_have_inst)}\n")
+        printf("---------\n")
+    }
 }

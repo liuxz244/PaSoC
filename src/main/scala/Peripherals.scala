@@ -62,48 +62,68 @@ class DBusMux(val nDevices: Int = 4) extends Module {
 // GPIO外设模块
 class GPIOCtrl() extends Module {
     val io = IO(new Bundle {
-        val bus  = new DBusPortIO()  // 外设总线接口
-        val gpio = new GPIOPortIO()    // GPIO接口
+        val bus   = new DBusPortIO()
+        val gpio  = new GPIOPortIO()
+        val irq   = Output(Bool())
     })
+    val debounceEnabled = sys.env.getOrElse("PASOC_SIM", "0") == "1"  // 仿真时不启用消抖
 
-    // 使用寄存器保存GPIO输出值，复位为0
     val gpioOutReg = RegInit(0.U(GPIO_LEN.W))
+    val stableIn   = Wire(UInt(GPIO_LEN.W))
 
-    // 默认输出信号
+    // 与中断相关的状态寄存器
+    val lastStableIn = RegInit(0.U(GPIO_LEN.W))
+
+    if (debounceEnabled) {
+        // ====== 消抖实现 ======
+        val stableReg = RegInit(0.U(GPIO_LEN.W))
+        val debounce_cycles = (CLOCK_FREQ / 50).U   // 20ms
+        val cnt = RegInit(0.U(log2Ceil(CLOCK_FREQ / 50 + 1).W))
+        val lastRawIn = RegNext(io.gpio.In)
+        val diff = io.gpio.In =/= lastRawIn  // 输入有变化
+
+        when(diff) { cnt := 0.U }
+        .elsewhen(cnt < debounce_cycles) { cnt := cnt + 1.U }
+
+        when(cnt === debounce_cycles && stableReg =/= io.gpio.In) {
+            stableReg := io.gpio.In
+        }
+        stableIn := stableReg
+    } else {
+        stableIn := io.gpio.In  // 直通实现，无消抖
+    }
+    lastStableIn := stableIn  // 更新lastStableIn，每拍跟踪
+
+    // 边沿检测：只对上升沿出发 (0->1)
+    val risingEdge = (~lastStableIn) & stableIn
+    io.irq := risingEdge.orR  // 任意一位由0变1触发中断
+
     io.gpio.Out := gpioOutReg
-    
-    // 默认总线响应信号
     io.bus.rdata := 0.U
     io.bus.ready := false.B
+    io.gpio.debug := false.B
 
-    // 总线有效且地址匹配时的读写操作
     when(io.bus.valid) {
-        // 读操作，wen = false
         when(!io.bus.wen) {
-            // 根据地址返回数据
-            when(io.bus.addr === GPIO_IN_ADDR) {
-                // 返回输入状态，低位有效，高位补0
-                io.bus.rdata := io.gpio.In.pad(WORD_LEN)  // pad用于零扩展到32位
-                io.bus.ready := true.B
-            } .elsewhen(io.bus.addr === GPIO_OUT_ADDR) {
-                // 返回当前输出寄存器的值
-                io.bus.rdata := gpioOutReg.pad(WORD_LEN)
-                io.bus.ready := true.B
-            } .otherwise {
-                // 地址不可识别，ready任为false或可附加异常处理
-                io.bus.ready := false.B
+            switch(io.bus.addr(7, 0)) {
+                is("h00".U) {
+                    io.bus.rdata := stableIn.pad(WORD_LEN)
+                    io.bus.ready := true.B
+                    io.gpio.debug := true.B
+                }
+                is("h04".U) {
+                    io.bus.rdata := gpioOutReg.pad(WORD_LEN)
+                    io.bus.ready := true.B
+                }
             }
-        } .otherwise {  // 写操作，wen = true
-            when(io.bus.addr === GPIO_OUT_ADDR) {
-                // 只更新低8位有效
-                gpioOutReg := io.bus.wdata(GPIO_LEN-1, 0)
-                io.bus.ready := true.B
-            } .otherwise {
-                io.bus.ready := false.B
+        }.otherwise {
+            switch(io.bus.addr(7, 0)) {
+                is("h04".U) {
+                    gpioOutReg := io.bus.wdata(GPIO_LEN-1, 0)
+                    io.bus.ready := true.B
+                }
             }
         }
-    } .otherwise {
-        io.bus.ready := false.B
     }
 }
 
@@ -115,181 +135,283 @@ class PWMCtrl() extends Module {
         val pwm = Output(UInt(PWM_LEN.W))  // PWM输出信号
     })
 
-    // 占空比寄存器数组，存储各通道占空比，宽度为PWM_MAX位宽的log2
-    val dutyRegs = RegInit(VecInit(Seq.fill(PWM_LEN)(0.U(log2Ceil(PWM_MAX + 1).W))))
+    // 宽度参数
+    val DUTY_WIDTH = log2Ceil(PWM_MAX + 1)
 
-    // 计数器，循环计数PWM周期
-    val counter = RegInit(0.U(log2Ceil(PWM_MAX + 1).W))
+    // N 路占空比寄存器
+    val dutyRegs = RegInit(VecInit(Seq.fill(PWM_LEN)(0.U(DUTY_WIDTH.W))))
+
+    // 计数器
+    val counter = RegInit(0.U(DUTY_WIDTH.W))
     counter := Mux(counter === PWM_MAX.U, 0.U, counter + 1.U)
 
-    // 地址对比判断，判断访问是否在PWM外设寄存器空间内
-    // 假设外设空间为 PWM_BASE_ADDR -> PWM_BASE_ADDR + 4*(PWM_LEN -1)
-    val addrOffset = io.bus.addr - PWM_BASE_ADDR
-    val inRange = (io.bus.addr >= PWM_BASE_ADDR) && (addrOffset < (PWM_LEN * 4).U) && ((addrOffset & 3.U) === 0.U)
+    // 只判断低 8 位地址
+    // 通道号 (如: PWM 0寄存器偏移为0x00, PWM 1为0x04, ...)
+    val addrOffset = io.bus.addr(7, 0)
+    val inRange = ((addrOffset & "h03".U) === 0.U) && (addrOffset < (PWM_LEN * 4).U)
 
-    // 计算访问的索引（通道号）
-    val channelIndex = (addrOffset >> 2)(log2Ceil(PWM_LEN) - 1, 0) // 右移2位，转换成word索引
+    // 计算索引（通道号）
+    val channelIndex = (addrOffset >> 2)(log2Ceil(PWM_LEN)-1, 0)
 
-    // 默认信号
+    // 总线默认值
     io.bus.ready := false.B
     io.bus.rdata := 0.U
 
-    // 读写逻辑
     when(io.bus.valid && inRange) {
         io.bus.ready := true.B
         when(io.bus.wen) {
-            // 写操作，写入占空比寄存器，限制最大值为PWM_MAX
-            dutyRegs(channelIndex) := io.bus.wdata(log2Ceil(PWM_MAX + 1) - 1, 0).min(PWM_MAX.U)
+            // 写入占空比，限制最大值为PWM_MAX
+            dutyRegs(channelIndex) := io.bus.wdata(DUTY_WIDTH-1, 0).min(PWM_MAX.U)
         }.otherwise {
-        // 读操作，返回寄存器值，扩展成WORD_LEN位宽
+            // 读出寄存器值，pad到WORD_LEN
             io.bus.rdata := dutyRegs(channelIndex).pad(WORD_LEN)
         }
     }
 
-    // PWM信号产生
-    // PWM输出为：当计数器小于占空比寄存器的值时输出高电平，否则低电平
-    // 产生一个 Vec[Bool] 存放各通道的高低电平
+    // PWM信号生成
     val pwmVec = VecInit(
         (0 until PWM_LEN).map(i => counter < dutyRegs(i))
     )
-    // 将 Vec[Bool] 串联成一个 UInt，高位在最左端
-    io.pwm := pwmVec.asUInt
+    io.pwm := pwmVec.asUInt // 高位在左
 }
 
 
-// UART 发送器外设
-class UartTxCtrl extends Module {
+// UART外设
+class UartCtrl extends Module {
     val io = IO(new Bundle {
         val bus = new DBusPortIO
         val tx  = Output(Bool())
+        val rx  = Input(Bool())
+        val rx_flag = Input(Bool())
+        val rx_data = Input(UInt(8.W))
     })
 
-    // 计算一个波特周期对应的时钟周期数
-    private val baudCntMax  = (CLOCK_FREQ / BAUD_RATE).U(32.W)
-    // FIFO，深度由参数配置
-    private val fifoDepth   = 32
-    val fifo = Module(new Queue(UInt(8.W), fifoDepth))
+    val rvDebug = sys.env.getOrElse("PASORV_DEBUG", "0") == "1"
+    val sim = sys.env.getOrElse("PASOC_SIM", "0") == "1"
+    
+    val baudCntMax  = (CLOCK_FREQ / BAUD_RATE).U(32.W)  // 计算波特率
+    val fifoDepth = 32  // FIFO缓冲字节数
+
+    // 发送FIFO
+    val txFifo = Module(new Queue(UInt(8.W), fifoDepth))
+    // 接收FIFO
+    val rxFifo = Module(new Queue(UInt(8.W), fifoDepth))
 
     //------------------------------------------------------------
     // 总线写数据字节分解，只处理ben为0001, 0011, 1111三种情况
+    //    (写入0x00为TX，读0x04为RX DATA，读0x08为RX COUNT) 
     //------------------------------------------------------------
     val bus_valid = io.bus.valid
-    val is_write = io.bus.wen && (io.bus.addr === UART_TX_ADDR) && bus_valid
-    val is_read  = !io.bus.wen && (io.bus.addr === UART_TX_ADDR) && bus_valid
+    val addr = io.bus.addr(7, 0)
+    // 总线各功能判定
+    val is_tx_write =  io.bus.wen && (addr === "h00".U) && bus_valid  // 写TX
+    val is_tx_read  = !io.bus.wen && (addr === "h00".U) && bus_valid  // 读TX FIFO数量
+    val is_rx_read  = !io.bus.wen && (addr === "h04".U) && bus_valid  // 读RX FIFO弹出数据
+    val is_rx_count = !io.bus.wen && (addr === "h08".U) && bus_valid  // 读RX FIFO计数
+
     val bytes = VecInit(Seq.tabulate(4)(i => io.bus.wdata(8*i+7, 8*i)))
 
-    // 根据ben类型确定要写入字节数和内容
-    val write_num   = Wire(UInt(3.W))       // 需写入FIFO的字节数
-    val write_bytes = Wire(Vec(4, UInt(8.W))) // 最多4字节，不足默认为0
+    val write_num   = Wire(UInt(3.W))
+    val write_bytes = Wire(Vec(4, UInt(8.W)))
     write_num      := 0.U
     write_bytes    := VecInit(Seq.fill(4)(0.U(8.W)))
     switch(io.bus.ben) {
-        is("b0001".U) { // sb
-            write_num := 1.U
-            write_bytes(0) := bytes(0)
-        }
-        is("b0011".U) { // sh (低16位)
-            write_num := 2.U
-            write_bytes(0) := bytes(0)
-            write_bytes(1) := bytes(1)
-        }
-        is("b1111".U) { // sw
-            write_num := 4.U
-            write_bytes(0) := bytes(0); write_bytes(1) := bytes(1)
-            write_bytes(2) := bytes(2); write_bytes(3) := bytes(3)
-        }
+        is("b0001".U) { write_num := 1.U; write_bytes(0) := bytes(0) }
+        is("b0011".U) { write_num := 2.U
+                        write_bytes(0) := bytes(0); write_bytes(1) := bytes(1) }
+        is("b1111".U) { write_num := 4.U
+                        write_bytes(0) := bytes(0); write_bytes(1) := bytes(1)
+                        write_bytes(2) := bytes(2); write_bytes(3) := bytes(3) }
     }
-
-    // 获取FIFO剩余空间，判断是否可全部写入
-    val fifo_space = (fifoDepth.U - fifo.io.count)
-    val can_write  = (write_num =/= 0.U) && (fifo_space >= write_num)
+    val tx_fifo_space = (fifoDepth.U - txFifo.io.count)
+    val tx_can_write  = (write_num =/= 0.U) && (tx_fifo_space >= write_num)
 
     //------------------------------------------------------------
-    // 写入流水线状态机（一次bus事务对应1~4拍流水入队，IO ready最后一拍拉高）
+    // 发送流水线状态机
     //------------------------------------------------------------
-    val wr_valid    = RegInit(false.B)          // 当前事务是否在流水写入
-    val write_count = RegInit(0.U(3.W))         // 剩余要写多少字节
-    val wr_bytes    = Reg(Vec(4, UInt(8.W)))    // 需写入的内容
-    val wr_idx      = Wire(UInt(2.W))           // 当前写入字节的索引
+    val wr_valid    = RegInit(false.B)
+    val write_count = RegInit(0.U(3.W))
+    val wr_bytes    = Reg(Vec(4, UInt(8.W)))
+    val wr_idx      = Wire(UInt(2.W))
     wr_idx := write_num - write_count
 
-    when(is_write && !wr_valid && can_write) {
+    when(is_tx_write && !wr_valid && tx_can_write) {
         for(i <- 0 until 4) { wr_bytes(i) := write_bytes(i) }
         write_count := write_num
         wr_valid := true.B
     }
 
     // 默认输出
-    fifo.io.enq.valid := false.B
-    fifo.io.enq.bits  := 0.U
+    txFifo.io.enq.valid := false.B
+    txFifo.io.enq.bits  := 0.U
     io.bus.ready      := false.B
     io.bus.rdata      := 0.U
 
     when(wr_valid && (write_count > 0.U)) {
-        fifo.io.enq.valid := true.B
-        fifo.io.enq.bits  := wr_bytes(wr_idx)
-        when(fifo.io.enq.ready) {
+        txFifo.io.enq.valid := true.B
+        txFifo.io.enq.bits  := wr_bytes(wr_idx)
+        when(txFifo.io.enq.ready) {
             write_count := write_count - 1.U
             when(write_count === 1.U) {
-                wr_valid := false.B      // 本轮写入完成
-                io.bus.ready := true.B   // 拉高ready，结束事务
+                wr_valid := false.B
+                io.bus.ready := true.B
             }
         }
-    } .elsewhen(is_read) {
+    } .elsewhen(is_tx_read) {
         io.bus.ready := true.B
-        // 返回FIFO的当前计数，低4位
-        io.bus.rdata := Cat(0.U(28.W), fifo.io.count)
-    } .elsewhen(is_write && !wr_valid && (write_num =/= 0.U) && !can_write) {
-        // 空间不足，ready拉低，CPU自动等待
+        io.bus.rdata := Cat(0.U(28.W), txFifo.io.count)
+    } .elsewhen(is_tx_write && !wr_valid && (write_num =/= 0.U) && !tx_can_write) {
         io.bus.ready := false.B
     }
 
-    //------------------------------------------------------------
-    // UART发送主状态机
-    //------------------------------------------------------------
-    val sIdle :: sStart :: sData :: sStop :: Nil = Enum(4)
-    val state    = RegInit(sIdle)
-    val baudCnt  = RegInit(0.U(32.W))
-    val bitCnt   = RegInit(0.U(3.W))
-    val shiftReg = RegInit(0.U(8.W))
-    fifo.io.deq.ready := false.B
-    io.tx := true.B // 默认高电平空闲
+    //============================================================
+    //   串口接收状态机 & FIFO（1倍采样，简易版）
+    //============================================================
+    if (sim) {
+        // =====================仿真RX专用通路=======================
+        rxFifo.io.enq.valid := io.rx_flag
+        rxFifo.io.enq.bits  := io.rx_data
+        rxFifo.io.deq.ready := false.B
+        when(is_rx_read) {
+            io.bus.ready := rxFifo.io.deq.valid
+            io.bus.rdata := Mux(rxFifo.io.deq.valid, Cat(0.U(24.W), rxFifo.io.deq.bits), 0.U)
+            rxFifo.io.deq.ready := io.bus.ready && bus_valid
+            //printf("%c", rxFifo.io.deq.bits)
+        } .elsewhen(is_rx_count) {
+            io.bus.ready := true.B
+            io.bus.rdata := Cat(0.U(28.W), rxFifo.io.count)
+        }
+    } else {
+        // ========================硬件RX收发逻辑=================
+        val rsIdle :: rsStart :: rsData :: rsStop :: Nil = Enum(4)
+        val rxState = RegInit(rsIdle)
 
-    switch(state) {
-        is(sIdle) {
-            io.tx := true.B
-            when(fifo.io.deq.valid) {
-                state := sStart
-                shiftReg := fifo.io.deq.bits
-                fifo.io.deq.ready := true.B
-                baudCnt := 0.U
-        }}
-        is(sStart) {
-            io.tx := false.B // 起始位
-            when(baudCnt === baudCntMax - 1.U) {
-                baudCnt := 0.U
-                bitCnt := 0.U
-                state := sData
-            } .otherwise {
-                baudCnt := baudCnt + 1.U
-        }}
-        is(sData) {
-            io.tx := shiftReg(bitCnt)
-            when(baudCnt === baudCntMax - 1.U) {
-                baudCnt := 0.U
-                when(bitCnt === 7.U) { state := sStop }
-                .otherwise { bitCnt := bitCnt + 1.U }
-            } .otherwise {
-                baudCnt := baudCnt + 1.U
-        }}
-        is(sStop) {
-            io.tx := true.B // 停止位
-            when(baudCnt === baudCntMax - 1.U) {
-                baudCnt := 0.U
-                state := sIdle
-            } .otherwise {
-                baudCnt := baudCnt + 1.U
-        }}
+        val rxBaudCnt = RegInit(0.U(32.W))
+        val rxShiftReg = RegInit(0.U(8.W))
+        val rxBitCnt = RegInit(0.U(3.W))
+        val rxDataRdy = WireInit(false.B)
+
+        val rxSync = RegNext(RegNext(io.rx))
+        rxFifo.io.enq.valid := false.B
+        rxFifo.io.enq.bits  := 0.U
+
+        rxDataRdy := false.B
+        switch(rxState) {
+            is(rsIdle) {
+                rxBaudCnt := 0.U
+                when(!rxSync) { // 检测到起始位
+                    rxState := rsStart
+                    rxBaudCnt := 0.U
+                }
+            }
+            is(rsStart) {
+                rxBaudCnt := rxBaudCnt + 1.U
+                // 等待半个bit后，跳到数据区
+                when(rxBaudCnt === (baudCntMax >> 1)) {
+                    rxBaudCnt := 0.U
+                    rxBitCnt := 0.U
+                    rxState := rsData
+                }
+            }
+            is(rsData) {
+                rxBaudCnt := rxBaudCnt + 1.U
+                when(rxBaudCnt === baudCntMax - 1.U) {
+                    rxShiftReg := (rxSync.asUInt << 7) | (rxShiftReg >> 1)
+                    rxBaudCnt := 0.U
+                    when(rxBitCnt === 7.U) {
+                        rxState := rsStop
+                    }.otherwise {
+                        rxBitCnt := rxBitCnt + 1.U
+                    }
+                }
+            }
+            is(rsStop) {
+                rxBaudCnt := rxBaudCnt + 1.U
+                when(rxBaudCnt === baudCntMax - 1.U) {
+                    rxState := rsIdle
+                    rxBaudCnt := 0.U
+                    when(rxSync) { rxDataRdy := true.B } // stop bit=1
+                }
+            }
+        }
+
+        // 接收1字节, 入FIFO
+        when(rxDataRdy && rxFifo.io.enq.ready) {
+            rxFifo.io.enq.valid := true.B
+            rxFifo.io.enq.bits := rxShiftReg
+        }
+
+        // RX 总线操作（0x04读内容，0x08读深度）
+        rxFifo.io.deq.ready := false.B // 默认
+        when(is_rx_read) {
+            io.bus.ready := rxFifo.io.deq.valid
+            io.bus.rdata := Mux(rxFifo.io.deq.valid, Cat(0.U(24.W), rxFifo.io.deq.bits), 0.U)
+            rxFifo.io.deq.ready := io.bus.ready && bus_valid // 只在握手时出队
+        } .elsewhen(is_rx_count) {
+            io.bus.ready := true.B
+            io.bus.rdata := Cat(0.U(28.W), rxFifo.io.count)
+        }
+    }
+    
+    //============================================================
+    //   UART发送主状态机
+    //============================================================
+    val tsIdle :: tsStart :: tsData :: tsStop :: Nil = Enum(4)
+    val txState    = RegInit(tsIdle)
+    val txBaudCnt  = RegInit(0.U(32.W))
+    val txBitCnt   = RegInit(0.U(3.W))
+    val txShiftReg = RegInit(0.U(8.W))
+    txFifo.io.deq.ready := false.B
+    io.tx := true.B
+
+    if (sim) {
+        // 仿真时直接printf，不再控制io.tx
+        when(txFifo.io.deq.valid) {
+            printf("%c", txFifo.io.deq.bits)
+            txFifo.io.deq.ready := true.B
+        }
+    } else {
+        // 真正硬件时继续原串口逻辑
+        switch(txState) {
+            is(tsIdle) {
+                io.tx := true.B
+                when(txFifo.io.deq.valid) {
+                    txState := tsStart
+                    txShiftReg := txFifo.io.deq.bits
+                    txFifo.io.deq.ready := true.B
+                    txBaudCnt := 0.U
+                }
+            }
+            is(tsStart) {
+                io.tx := false.B // 起始位
+                when(txBaudCnt === baudCntMax - 1.U) {
+                    txBaudCnt := 0.U
+                    txBitCnt := 0.U
+                    txState := tsData
+                } .otherwise {
+                    txBaudCnt := txBaudCnt + 1.U
+                }
+            }
+            is(tsData) {
+                io.tx := txShiftReg(txBitCnt)
+                when(txBaudCnt === baudCntMax - 1.U) {
+                    txBaudCnt := 0.U
+                    when(txBitCnt === 7.U) { txState := tsStop }
+                    .otherwise { txBitCnt := txBitCnt + 1.U }
+                } .otherwise {
+                    txBaudCnt := txBaudCnt + 1.U
+                }
+            }
+            is(tsStop) {
+                io.tx := true.B // 停止位
+                when(txBaudCnt === baudCntMax - 1.U) {
+                    txBaudCnt := 0.U
+                    txState := tsIdle
+                } .otherwise {
+                    txBaudCnt := txBaudCnt + 1.U
+                }
+            }
+        }
     }
 }
 
@@ -301,36 +423,151 @@ class OledCtrl extends Module {
         val oled = new OLEDLineIO
     })
 
+    // 4 行 × 4 段× 32bit
     val lines = RegInit(VecInit(Seq.fill(4)(VecInit(Seq.fill(4)(0.U(32.W))))))
-    val addr_offset = (io.bus.addr - OLED_BASE_ADDR) >> 2
-    val lineIdx = addr_offset(3, 2)
-    val segIdx  = addr_offset(1, 0)
 
-    // 写入部分：用掩码拼接，支持不同粒度的写
-    when(io.bus.wen && (io.bus.addr >= OLED_BASE_ADDR) && (io.bus.addr < OLED_BASE_ADDR + 64.U)) {
+    // 只解码低8位
+    val addrOffset = io.bus.addr(7,0)
+    // offset范围是0x00~0x3F（4行×4段×4字节=64B）
+    val validAccess = (addrOffset < 64.U) //&& ((addrOffset & "h3".U) === 0.U)
+
+    // 行/段索引
+    val lineIdx = addrOffset(5,4)  // 00/01/10/11
+    val segIdx  = addrOffset(3,2)  // 00/01/10/11
+
+    // 写操作，按byte mask
+    when(io.bus.valid && io.bus.wen && validAccess) {
         val old = lines(lineIdx)(segIdx)
-        // 生成每字节mask
-        val byteMask = Wire(Vec(4, Bool()))
-        for(i <- 0 until 4) {byteMask(i) := io.bus.ben(i)}
-        // 拼接新数据
+        val masks = Wire(Vec(4, Bool()))
+        for(i <- 0 until 4) { masks(i) := io.bus.ben(i) }
         val newData = Cat(
-            Mux(byteMask(3), io.bus.wdata(31,24), old(31,24)), Mux(byteMask(2), io.bus.wdata(23,16), old(23,16)),
-            Mux(byteMask(1), io.bus.wdata(15,8), old(15,8)),   Mux(byteMask(0), io.bus.wdata(7,0), old(7,0))
+            Mux(masks(3), io.bus.wdata(31,24), old(31,24)),
+            Mux(masks(2), io.bus.wdata(23,16), old(23,16)),
+            Mux(masks(1), io.bus.wdata(15,8),  old(15,8)),
+            Mux(masks(0), io.bus.wdata(7,0),   old(7,0))
         )
         lines(lineIdx)(segIdx) := newData
     }
 
-    // 读取部分
-    val read_data = WireDefault(0.U(32.W))
-    when((io.bus.addr >= OLED_BASE_ADDR) && (io.bus.addr < OLED_BASE_ADDR + 64.U)) {
-        read_data := lines(lineIdx)(segIdx)
+    // 读操作
+    val readData = WireDefault(0.U(32.W))
+    when(io.bus.valid && !io.bus.wen && validAccess) {
+        readData := lines(lineIdx)(segIdx)
     }
 
-    io.bus.rdata := read_data
-    io.bus.ready := io.bus.valid
+    io.bus.rdata := readData
+    io.bus.ready := io.bus.valid && validAccess
 
+    // 把每一行4个段拼接到OLED输出
     for(i <- 0 until 4) {
         io.oled.elements("str_line" + i) := Cat(lines(i)(0), lines(i)(1), lines(i)(2), lines(i)(3))
     }
 }
 
+
+class PLIC extends Module {
+    val io = IO(new Bundle {
+        val irq_in  = Input(UInt(8.W))  // 外部中断源请求表
+        val irq_out = Output(Bool())    // 最高优先级中断输出到CPU
+        val bus     = new DBusPortIO    // 总线接口
+    })
+
+    // ----------------------
+    // 8路pending寄存器（只读），外部触发，产生IRQ
+    val pending = RegInit(0.U(8.W))
+    // 每路使能
+    val enable  = RegInit(0.U(8.W))
+    // claim后清除pending
+    val complete = WireInit(0.U(8.W))
+    // claim寄存器
+    val claim_reg = RegInit(0.U(4.W)) // 0=无中断, 1~8表示中断编号
+
+    // priority略, 固定优先级: 0路最高，7最低
+
+    // 外部中断输入采样
+    val irq_level = io.irq_in        // 可改为同步脉冲采样: io.irq_in & ~RegNext(io.irq_in)
+    pending := pending | irq_level   // 有请求时置位
+
+    // 寻找最高优先级pending且enabled的中断
+    val pending_masked = pending & enable
+    val irq_vec = VecInit((0 until 8).map(i => pending_masked(i)))
+    val irq_prio = Wire(UInt(4.W))
+    // 取第一个为1的通道号(1~8)，否则为0
+    irq_prio := MuxCase(0.U, (1 until 9).map(i =>
+        (irq_vec(i-1)) -> i.U
+    ))
+    io.irq_out := irq_prio =/= 0.U
+    claim_reg := irq_prio   // 通常CPU收到irq后，读取claim寄存器获得中断号
+
+    // 读取mapping
+    val rdata = WireDefault(0.U(32.W))
+    switch(io.bus.addr(7, 0)) {
+        is("h00".U) { rdata := pending }
+        is("h04".U) { rdata := enable }
+        is("h0C".U) { rdata := claim_reg }
+        // is("h08".U) { rdata := ... } // priority
+    }
+    io.bus.rdata := rdata
+
+    // 写mapping
+    when (io.bus.valid && io.bus.wen) {
+        switch(io.bus.addr(7, 0)) {
+        is("h04".U) {  // enable
+            enable := io.bus.wdata(7,0)
+        }
+        is("h0C".U) {  // complete
+            // 写claim/complete，wdata[3:0]为complete, 1~8号
+            // pending清除相应位
+            val clear_num = io.bus.wdata(3,0)
+            when(clear_num > 0.U && clear_num <= 8.U) {
+                pending := pending & ~(1.U << (clear_num-1.U))
+            }
+        }
+        // 其它写无效
+        }
+    }
+
+    io.bus.ready := true.B
+
+}
+
+
+class CLINT extends Module {
+    val io = IO(new Bundle {
+        val bus = new DBusPortIO()  // 使用数据总线接口
+        val irq = Output(Bool())    // 定时器中断信号
+    })
+
+    // 定义64位mtime和mtimecmp 
+    val mtime    = RegInit(0.U(64.W))  // mtime  MMIO映射    低32位在 0x00-0x03，高32位在 0x04-0x07
+    val mtimecmp = RegInit("x_ffffffffffffffff".U(64.W))  // 低32位在 0x08-0x0B，高32位在 0x0C-0x0F
+
+    mtime := mtime + 1.U  // 定时器递增
+    val timeup = (mtime >= mtimecmp)  // 达到/超过设定时间
+    io.irq := timeup  // 触发中断  
+
+    io.bus.ready := false.B  // 初始化 ready 信号为 false
+    io.bus.rdata := 0.U      // 初始化 rdata 为 0
+
+    // 处理读写请求
+    when(io.bus.valid) {
+        io.bus.ready := true.B  // 总线有效时拉高 ready
+        val addr = io.bus.addr(7,0)  // 只使用了地址的低 8 位
+        when(io.bus.wen) {
+            switch(addr) {
+            is("h00".U) { mtime := Cat(mtime(63, 32), io.bus.wdata) }
+            is("h04".U) { mtime := Cat(io.bus.wdata,  mtime(31, 0)) }
+            is("h08".U) { mtimecmp := Cat(mtimecmp(63, 32), io.bus.wdata) }
+            is("h0C".U) { mtimecmp := Cat(io.bus.wdata,  mtimecmp(31, 0)) }
+            }
+        }.otherwise {
+            io.bus.rdata := MuxCase(0.U, Seq(
+                (addr === "h00".U) -> mtime(31, 0),
+                (addr === "h04".U) -> mtime(63, 32),
+                (addr === "h08".U) -> mtimecmp(31, 0),
+                (addr === "h0C".U) -> mtimecmp(63, 32),
+                (addr === "h10".U) -> Mux(timeup, 1.U, 0.U)
+            ))
+        }
+    }
+}

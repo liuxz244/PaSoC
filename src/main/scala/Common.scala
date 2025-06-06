@@ -4,23 +4,26 @@ import chisel3._       // chisel本体
 import chisel3.util._  // BitPat比较
 
 object Consts {  // 常量定义 
-    val WORD_LEN      = 32
-    val CLOCK_FREQ    = 27000000
-    val BAUD_RATE     = 115200  // 波特率
+    // SoC设置
+    val CLOCK_FREQ = sys.env.get("PASOC_CLOCK_FREQ") match {
+        case Some(freq) => freq.toInt  // 如果环境变量存在，使用环境变量值
+        case None => 50000000  // 如果环境变量不存在，使用默认值
+    }
+    val BAUD_RATE = sys.env.get("PASOC_BAUD_RATE") match {
+        case Some(freq) => freq.toInt  // 如果环境变量存在，使用环境变量值
+        case None => 115200    // 如果环境变量不存在，使用默认值
+    }
     val GPIO_LEN      = 4    // GPIO位宽
     val PWM_LEN       = 2    // pwm输出路数
     val PWM_MAX       = 255  // 8-bit精度
 
-    // 外设寄存器地址
-    val GPIO_IN_ADDR   = 0x10000000.U(WORD_LEN.W)
-    val GPIO_OUT_ADDR  = 0x10000004.U(WORD_LEN.W)
-    val PWM_BASE_ADDR  = 0x20000000.U(WORD_LEN.W)
-    val UART_TX_ADDR   = 0x30000000.U(WORD_LEN.W)
-    val OLED_BASE_ADDR = 0x40000000.U(WORD_LEN.W)
+    // CSR位地址
+    val MIE  = 3.U(5.W)   // mstatus中MIE对应的bit位置
+    val MPIE = 7.U(5.W)   // mstatus中MPIE对应的bit位置
+    val MTIE = 7.U(5.W)   // mie中MTIE对应的bit位置
+    val MEIE = 11.U(5.W)  // mie中MEIE对应的bit位置
 
-    val MIE  = 3.U(5.W)  // mstatus中MIE对应的bit位置
-    val MPIE = 7.U(5.W)  // mstatus中MPIE对应的bit位置
-
+    val WORD_LEN      = 32  // 32位CPU
     val START_ADDR    = 0.U(WORD_LEN.W)
     val BUBBLE        = 0x00000013.U(WORD_LEN.W)  // [ADDI x0,x0,0] = BUBBLE
     val UNIMP         = "x_c0001073".U(WORD_LEN.W) // [CSRRW x0, cycle, x0]

@@ -1,0 +1,71 @@
+
+/tmp/tmp.g7FTSgWUNa/plic.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <_start>:
+   0:	10001137          	lui	sp,0x10001
+   4:	ffc10113          	addi	sp,sp,-4 # 10000ffc <_stack_limit+0xbfc>
+   8:	10000337          	lui	t1,0x10000
+   c:	10030313          	addi	t1,t1,256 # 10000100 <_end+0x100>
+  10:	00032023          	sw	zero,0(t1)
+  14:	500002b7          	lui	t0,0x50000
+  18:	00428293          	addi	t0,t0,4 # 50000004 <_stack_limit+0x3ffffc04>
+  1c:	08000313          	li	t1,128
+  20:	0062a023          	sw	t1,0(t0)
+  24:	00000297          	auipc	t0,0x0
+  28:	02428293          	addi	t0,t0,36 # 48 <isr_handler>
+  2c:	30529073          	csrw	mtvec,t0
+  30:	00001337          	lui	t1,0x1
+  34:	80030313          	addi	t1,t1,-2048 # 800 <STACK_SIZE+0x400>
+  38:	30431073          	csrw	mie,t1
+  3c:	30046073          	csrsi	mstatus,8
+
+00000040 <main_loop>:
+  40:	00000013          	nop
+  44:	ffdff06f          	j	40 <main_loop>
+
+00000048 <isr_handler>:
+  48:	ff010113          	addi	sp,sp,-16
+  4c:	00512023          	sw	t0,0(sp)
+  50:	00612223          	sw	t1,4(sp)
+  54:	00712423          	sw	t2,8(sp)
+  58:	01c12623          	sw	t3,12(sp)
+  5c:	500002b7          	lui	t0,0x50000
+  60:	00c28293          	addi	t0,t0,12 # 5000000c <_stack_limit+0x3ffffc0c>
+  64:	0002a303          	lw	t1,0(t0)
+  68:	100003b7          	lui	t2,0x10000
+  6c:	10038393          	addi	t2,t2,256 # 10000100 <_end+0x100>
+  70:	0003ae03          	lw	t3,0(t2)
+  74:	001e0e13          	addi	t3,t3,1
+  78:	01c3a023          	sw	t3,0(t2)
+  7c:	0062a023          	sw	t1,0(t0)
+  80:	00012283          	lw	t0,0(sp)
+  84:	00412303          	lw	t1,4(sp)
+  88:	00812383          	lw	t2,8(sp)
+  8c:	00c12e03          	lw	t3,12(sp)
+  90:	01010113          	addi	sp,sp,16
+  94:	30200073          	mret
+
+Disassembly of section .riscv.attributes:
+
+00000000 <.riscv.attributes>:
+   0:	2641                	.insn	2, 0x2641
+   2:	0000                	.insn	2, 0x0000
+   4:	7200                	.insn	2, 0x7200
+   6:	7369                	.insn	2, 0x7369
+   8:	01007663          	bgeu	zero,a6,14 <_start+0x14>
+   c:	001c                	.insn	2, 0x001c
+   e:	0000                	.insn	2, 0x0000
+  10:	7205                	.insn	2, 0x7205
+  12:	3376                	.insn	2, 0x3376
+  14:	6932                	.insn	2, 0x6932
+  16:	7032                	.insn	2, 0x7032
+  18:	5f31                	.insn	2, 0x5f31
+  1a:	697a                	.insn	2, 0x697a
+  1c:	32727363          	bgeu	tp,t2,342 <isr_handler+0x2fa>
+  20:	3070                	.insn	2, 0x3070
+  22:	0800                	.insn	2, 0x0800
+  24:	0a01                	.insn	2, 0x0a01
+  26:	0b                	.byte	0x0b

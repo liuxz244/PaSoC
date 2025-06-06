@@ -14,7 +14,7 @@ class DBusPortIO extends Bundle {
     val valid = Input( Bool())  // 主机使能外设
     val addrb = Input( UInt(WORD_LEN.W))  // 在EX阶段提前发出的地址，用于读取有一周期延迟的bram,其余外设不应使用
     val addr  = Input( UInt(WORD_LEN.W))  // 在MEM阶段发出的地址，和其它信号同步，是字节地址不是字地址
-    val wen   = Input( Bool())     // 写使能
+    val wen   = Input( Bool())     // 写使能，高代表写，低代表读
     val ben   = Input( UInt(4.W))  // 字节使能
     val wdata = Input( UInt(WORD_LEN.W))  // 要写入外设的数据
     val rdata = Output(UInt(WORD_LEN.W))  // 从外设读到的数据
@@ -24,6 +24,7 @@ class DBusPortIO extends Bundle {
 class GPIOPortIO() extends Bundle{
     val In  = Input(UInt(GPIO_LEN.W))   // 8位GPIO输入
     val Out = Output(UInt(GPIO_LEN.W))  // 8位GPIO输出
+    val debug = Output(Bool())  // 要读取输入时拉高，仿真用
 }
 
 class OLEDLineIO extends Bundle {
