@@ -33,3 +33,17 @@ class OLEDLineIO extends Bundle {
     val str_line2 = Output(UInt(128.W))
     val str_line3 = Output(UInt(128.W))
 }
+
+// Chisel与SDRAM Verilog顶层交互
+class SdramDriverPortIO(val dataWidthBits: Int = 16) extends Bundle {
+    val operate_addr  = Output(UInt(26.W))  // 操作数据地址
+    val operate_nums  = Output(UInt(12.W))  // 单次读写数据数量
+    val send_data     = Output(UInt(dataWidthBits.W))  // 要写入的数据
+    val start         = Output(Bool())  // 开始读写，持续一个高电平
+    val mode          = Output(Bool())  // 0为写入，1为读取
+    val rec_data      = Input(UInt(dataWidthBits.W))  // 读取到的数据
+    val data_ready    = Input(Bool())  
+    // 读取时每收到一次高电平，就要读取rec_data；发送时每收到一次高电平，就要将send_data换成下一个要发送的数据
+    val done          = Input(Bool())  // 整个读写完成
+    val idle          = Input(Bool())  // 模块空闲，可以开始读写
+}

@@ -104,24 +104,18 @@ class GPIOCtrl() extends Module {
     io.gpio.debug := false.B
 
     when(io.bus.valid) {
+        io.bus.ready := true.B
         when(!io.bus.wen) {
             switch(io.bus.addr(7, 0)) {
                 is("h00".U) {
                     io.bus.rdata := stableIn.pad(WORD_LEN)
-                    io.bus.ready := true.B
                     io.gpio.debug := true.B
                 }
-                is("h04".U) {
-                    io.bus.rdata := gpioOutReg.pad(WORD_LEN)
-                    io.bus.ready := true.B
-                }
+                is("h04".U) { io.bus.rdata := gpioOutReg.pad(WORD_LEN) }
             }
         }.otherwise {
             switch(io.bus.addr(7, 0)) {
-                is("h04".U) {
-                    gpioOutReg := io.bus.wdata(GPIO_LEN-1, 0)
-                    io.bus.ready := true.B
-                }
+                is("h04".U) { gpioOutReg := io.bus.wdata(GPIO_LEN-1, 0) }
             }
         }
     }

@@ -6,7 +6,7 @@
 #define UART_BASE_ADDR   0x30000000UL  // 定义UART发送寄存器地址
 #define UART_TX_REG   (*(volatile uint8_t *)(UART_BASE_ADDR + 0x00))
 #define UART_RX_REG   (*(volatile uint8_t *)(UART_BASE_ADDR + 0x04))
-#define UART_TX_CNT   (*(volatile uint8_t *)(UART_BASE_ADDR + 0x08))
+#define UART_RX_CNT   (*(volatile uint8_t *)(UART_BASE_ADDR + 0x08))
 #define CLINT_BASE_ADDR  0x60000000UL  // 定义CLINT基地址
 #define MTIME_LO      (*(volatile unsigned int *)(CLINT_BASE_ADDR + 0x00))
 #define MTIME_HI      (*(volatile unsigned int *)(CLINT_BASE_ADDR + 0x04))
@@ -77,6 +77,10 @@ int strcmp(const char *s1, const char *s2);
 unsigned char get_char_noecho(void);
 void write_mem(uint32_t addr, uint32_t value);
 uint32_t read_mem(uint32_t addr);
+void write_mem16(uint32_t addr, uint16_t value);
+uint16_t read_mem16(uint32_t addr);
+void write_mem8(uint32_t addr, uint8_t value);
+uint8_t read_mem8(uint32_t addr);
 
 
 #endif

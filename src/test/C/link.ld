@@ -2,8 +2,8 @@ ENTRY(_start)
 
 MEMORY
 {
-    INSTR (rx) : ORIGIN = 0x00000000, LENGTH = 8K  /* 指令空间 */
-    DATA  (rw) : ORIGIN = 0x10000000, LENGTH = 8K  /* 数据空间 */
+    INSTR (rx) : ORIGIN = 0x00000000, LENGTH = 16K  /* 指令空间 */
+    DATA  (rw) : ORIGIN = 0x10000000, LENGTH = 8K   /* 数据空间 */
 }
 
 SECTIONS

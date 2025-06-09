@@ -190,3 +190,156 @@ class DTCM(val depth: Int, initHex: String) extends Module {
         mem.write(daddr, resultBytes.asUInt)
     }
 }
+
+
+// SDRAM控制器：支持32MB容量 W9825G6KH和MT48LC16M16
+//因为只写2个数据太少了会出错，一个32位字会分4次写，还要分别处理高8位和低8位，导致写入延迟较大。
+//所有写操作都通过"读-改-写"4个16bit数据，避免单字节/半字写时丢失其余位
+class SdramCtrl extends Module {
+    val io = IO(new Bundle {
+        val bus   = new DBusPortIO
+        val sdram = new SdramDriverPortIO(16)
+    })
+
+    // 状态机
+    val sIdle :: sReadReq :: sReadWait :: sModify :: sWriteReq :: sWriteWait :: sWriteDone :: sReadOut :: Nil = Enum(8)
+    val state    = RegInit(sIdle)
+
+    // 工作寄存器
+    val orig_wrdata = Reg(UInt(32.W))    // 总线写入的原始32位数据
+    val addr28      = Reg(UInt(28.W))    // 28位对齐地址
+    val ben         = Reg(UInt(4.W))     // 字节使能
+    val isWrite     = Reg(Bool())        // 是写操作
+    val byteCnt     = RegInit(0.U(2.W))  // 0~3: 当前是第几个word
+
+    // 高8位/低8位选择, 和SDRAM实际连线相关
+    val useHighByte = Wire(Bool())
+    useHighByte := addr28(24)  // 由24位决定SDRAM 16位高/低8位
+
+    // 拆分32位总线数据为4个8位
+    val wr_bytes = Wire(Vec(4, UInt(8.W)))
+    wr_bytes := VecInit(Seq.tabulate(4)(i => (orig_wrdata >> (i*8))(7,0)))
+
+    // 保存4x16bit
+    val rdata16_vec = RegInit(VecInit(Seq.fill(4)(0.U(16.W))))
+
+    // SDRAM接口连线
+    io.sdram.operate_addr := addr28(23, 0)  // 24位寻址16MB
+    io.sdram.operate_nums := 4.U
+    io.sdram.start        := false.B
+    io.sdram.mode         := true.B  // 1=读，0=写
+
+    // 总线接口默认值
+    io.bus.rdata := 0.U
+    io.bus.ready := false.B
+
+    // 从16位数据中选出目标操作的8位
+    def get_byte_from_16(data16: UInt): UInt = 
+        Mux(useHighByte, data16(15,8), data16(7,0))
+
+    // 组装写回用的16位数据（按ben）
+    val write_word_vec = Wire(Vec(4, UInt(16.W)))
+    for (i <- 0 until 4) {
+        val old = rdata16_vec(i)
+        write_word_vec(i) := Mux(ben(i),
+            Mux(useHighByte,
+                Cat(wr_bytes(i), old(7,0)),
+                Cat(old(15,8), wr_bytes(i))),
+            old
+        )
+    }
+    // 正在写第byteCnt个16位
+    io.sdram.send_data := write_word_vec(byteCnt)
+
+    // 把4个16位组织为32位数据（小端）
+    def combine_read_vec(vec: Vec[UInt]): UInt =
+        Cat(
+            get_byte_from_16(vec(3)),
+            get_byte_from_16(vec(2)),
+            get_byte_from_16(vec(1)),
+            get_byte_from_16(vec(0))
+        )
+
+    // ================= 状态机 =================
+    switch(state) {
+        is(sIdle) {
+            byteCnt := 0.U
+            when(io.bus.valid) {
+                addr28      := Cat(io.bus.addr(27,2), 0.U(2.W))
+                orig_wrdata := io.bus.wdata
+                isWrite     := io.bus.wen
+                ben         := io.bus.ben
+                byteCnt     := 0.U
+                when(io.sdram.idle) {
+                    state := sReadReq
+                }
+            }
+        }
+
+        // SDRAM读请求，4x16bit
+        is(sReadReq) {
+            io.sdram.mode  := true.B
+            io.sdram.start := true.B
+            state          := sReadWait
+            byteCnt        := 0.U
+        }
+
+        // SDRAM读响应，4x16bit
+        is(sReadWait) {
+            io.sdram.mode  := true.B
+            io.sdram.start := false.B
+            when(io.sdram.data_ready) {
+                rdata16_vec(byteCnt) := io.sdram.rec_data
+                byteCnt := byteCnt + 1.U
+            }
+            when(io.sdram.done) {
+                byteCnt := 0.U
+                when(isWrite) { state := sModify }
+                .otherwise    { state := sReadOut }
+            }
+        }
+
+        // 组合新数据：准备写阶段
+        is(sModify) {
+            byteCnt := 0.U
+            when(io.sdram.idle) {
+                state := sWriteReq
+            }
+        }
+
+        // SDRAM写请求，4x16bit
+        is(sWriteReq) {
+            io.sdram.mode  := false.B
+            io.sdram.start := true.B
+            state          := sWriteWait
+            byteCnt        := 0.U
+        }
+
+        // SDRAM写响应，4x16bit
+        is(sWriteWait) {
+            io.sdram.mode  := false.B
+            io.sdram.start := false.B
+            when(io.sdram.data_ready) {
+                byteCnt := byteCnt + 1.U
+            }
+            when(io.sdram.done) {
+                state   := sWriteDone
+                byteCnt := 0.U
+            }
+        }
+
+        // 写完成, 总线握手
+        is(sWriteDone) {
+            io.bus.ready := true.B
+            state        := sIdle
+        }
+
+        // 读完成, 数据打包返回
+        is(sReadOut) {
+            io.bus.rdata := combine_read_vec(rdata16_vec)
+            io.bus.ready := true.B
+            state        := sIdle
+        }
+    }
+}
+

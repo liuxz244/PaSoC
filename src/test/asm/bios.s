@@ -632,174 +632,466 @@ handle_gpio_command:
 	.string	"read"
 	.align	2
 .LC10:
-	.string	"\r\nError: invalid address. Usage: mem read <addr>\r\n"
+	.string	"read32"
 	.align	2
 .LC11:
-	.string	"\r\nMEM[0x"
+	.string	"\r\nError: invalid address. Usage: mem read[32] <addr>\r\n"
 	.align	2
 .LC12:
-	.string	"] = 0x"
+	.string	"\r\nMEM32[0x"
 	.align	2
 .LC13:
-	.string	"write"
+	.string	"] = 0x"
 	.align	2
 .LC14:
-	.string	"\r\nError: incomplete arguments. Usage: mem write <addr> <hex_value>\r\n"
+	.string	"read16"
 	.align	2
 .LC15:
-	.string	"\r\nError: invalid address or value. Usage: mem write <addr> <hex_value>\r\n"
+	.string	"\r\nError: invalid address. Usage: mem read16 <addr>\r\n"
 	.align	2
 .LC16:
-	.string	"] <= 0x"
+	.string	"\r\nMEM16[0x"
 	.align	2
 .LC17:
-	.string	"\r\nMemory write done!\r\n"
+	.string	"read8"
 	.align	2
 .LC18:
-	.string	"\r\nError: unknown subcmd. Usage: mem <read|write> <addr> [hex_value]\r\n"
+	.string	"\r\nError: invalid address. Usage: mem read8 <addr>\r\n"
+	.align	2
+.LC19:
+	.string	"\r\nMEM8[0x"
+	.align	2
+.LC20:
+	.string	"write"
+	.align	2
+.LC21:
+	.string	"write32"
+	.align	2
+.LC22:
+	.string	"\r\nError: incomplete args. Usage: mem write[32] <addr> <hex_value>\r\n"
+	.align	2
+.LC23:
+	.string	"\r\nError: invalid address or value. Usage: mem write[32] <addr> <hex_value>\r\n"
+	.align	2
+.LC24:
+	.string	"] <= 0x"
+	.align	2
+.LC25:
+	.string	"\r\nMemory write32 done!\r\n"
+	.align	2
+.LC26:
+	.string	"write16"
+	.align	2
+.LC27:
+	.string	"\r\nError: incomplete args. Usage: mem write16 <addr> <hex_value>\r\n"
+	.align	2
+.LC28:
+	.string	"\r\nError: invalid address or value. Usage: mem write16 <addr> <hex_value>\r\n"
+	.align	2
+.LC29:
+	.string	"\r\nMemory write16 done!\r\n"
+	.align	2
+.LC30:
+	.string	"write8"
+	.align	2
+.LC31:
+	.string	"\r\nError: incomplete args. Usage: mem write8 <addr> <hex_value>\r\n"
+	.align	2
+.LC32:
+	.string	"\r\nError: invalid address or value. Usage: mem write8 <addr> <hex_value>\r\n"
+	.align	2
+.LC33:
+	.string	"\r\nMemory write8 done!\r\n"
+	.align	2
+.LC34:
+	.string	"\r\nError: unknown subcmd. Usage:\r\n    mem <read|write[8|16|32]> <addr> [hex_value]\r\n"
 	.text
 	.align	2
 	.globl	handle_mem_command
 	.type	handle_mem_command, @function
 handle_mem_command:
-	addi	sp,sp,-48
-	sw	ra,44(sp)
-	sw	s0,40(sp)
-	addi	s0,sp,48
-	sw	a0,-36(s0)
-	lw	a5,-36(s0)
+	addi	sp,sp,-80
+	sw	ra,76(sp)
+	sw	s0,72(sp)
+	addi	s0,sp,80
+	sw	a0,-68(s0)
+	lw	a5,-68(s0)
 	addi	a4,a5,16
 	lui	a5,%hi(.LC9)
 	addi	a1,a5,%lo(.LC9)
 	mv	a0,a4
 	call	strcmp
 	mv	a5,a0
-	bne	a5,zero,.L66
-	lw	a5,-36(s0)
-	addi	a5,a5,32
-	addi	a4,s0,-24
-	mv	a1,a4
-	mv	a0,a5
-	call	parse_hex
-	mv	a5,a0
-	beq	a5,zero,.L67
-	lui	a5,%hi(.LC10)
-	addi	a0,a5,%lo(.LC10)
-	call	print_str
-	j	.L65
-.L67:
-	lw	a5,-24(s0)
-	mv	a0,a5
-	call	read_mem
-	sw	a0,-20(s0)
-	lui	a5,%hi(.LC11)
-	addi	a0,a5,%lo(.LC11)
-	call	print_str
-	lw	a5,-24(s0)
-	li	a1,8
-	mv	a0,a5
-	call	print_hex
-	lui	a5,%hi(.LC12)
-	addi	a0,a5,%lo(.LC12)
-	call	print_str
-	li	a1,8
-	lw	a0,-20(s0)
-	call	print_hex
-	lui	a5,%hi(.LC2)
-	addi	a0,a5,%lo(.LC2)
-	call	print_str
-	j	.L65
-.L66:
-	lw	a5,-36(s0)
+	beq	a5,zero,.L66
+	lw	a5,-68(s0)
 	addi	a4,a5,16
-	lui	a5,%hi(.LC13)
-	addi	a1,a5,%lo(.LC13)
+	lui	a5,%hi(.LC10)
+	addi	a1,a5,%lo(.LC10)
 	mv	a0,a4
 	call	strcmp
 	mv	a5,a0
-	bne	a5,zero,.L69
-	lw	a5,-36(s0)
-	lbu	a5,32(a5)
-	beq	a5,zero,.L70
-	lw	a5,-36(s0)
-	lbu	a5,48(a5)
-	bne	a5,zero,.L71
-.L70:
-	lui	a5,%hi(.LC14)
-	addi	a0,a5,%lo(.LC14)
-	call	print_str
-	j	.L65
-.L71:
-	lw	a5,-36(s0)
+	bne	a5,zero,.L67
+.L66:
+	lw	a5,-68(s0)
 	addi	a5,a5,32
-	addi	a4,s0,-28
-	mv	a1,a4
-	mv	a0,a5
-	call	parse_hex
-	mv	a5,a0
-	bne	a5,zero,.L73
-	lw	a5,-36(s0)
-	addi	a5,a5,48
 	addi	a4,s0,-32
 	mv	a1,a4
 	mv	a0,a5
 	call	parse_hex
 	mv	a5,a0
-	beq	a5,zero,.L74
-.L73:
-	lui	a5,%hi(.LC15)
-	addi	a0,a5,%lo(.LC15)
-	call	print_str
-	j	.L65
-.L74:
-	lw	a5,-28(s0)
-	lw	a4,-32(s0)
-	mv	a1,a4
-	mv	a0,a5
-	call	write_mem
+	beq	a5,zero,.L68
 	lui	a5,%hi(.LC11)
 	addi	a0,a5,%lo(.LC11)
 	call	print_str
-	lw	a5,-28(s0)
-	li	a1,8
+	j	.L65
+.L68:
+	lw	a5,-32(s0)
 	mv	a0,a5
-	call	print_hex
-	lui	a5,%hi(.LC16)
-	addi	a0,a5,%lo(.LC16)
+	call	read_mem
+	sw	a0,-28(s0)
+	lui	a5,%hi(.LC12)
+	addi	a0,a5,%lo(.LC12)
 	call	print_str
 	lw	a5,-32(s0)
 	li	a1,8
 	mv	a0,a5
 	call	print_hex
-	lui	a5,%hi(.LC17)
-	addi	a0,a5,%lo(.LC17)
+	lui	a5,%hi(.LC13)
+	addi	a0,a5,%lo(.LC13)
+	call	print_str
+	li	a1,8
+	lw	a0,-28(s0)
+	call	print_hex
+	lui	a5,%hi(.LC2)
+	addi	a0,a5,%lo(.LC2)
 	call	print_str
 	j	.L65
-.L69:
+.L67:
+	lw	a5,-68(s0)
+	addi	a4,a5,16
+	lui	a5,%hi(.LC14)
+	addi	a1,a5,%lo(.LC14)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L71
+	lw	a5,-68(s0)
+	addi	a5,a5,32
+	addi	a4,s0,-36
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	beq	a5,zero,.L72
+	lui	a5,%hi(.LC15)
+	addi	a0,a5,%lo(.LC15)
+	call	print_str
+	j	.L65
+.L72:
+	lw	a5,-36(s0)
+	mv	a0,a5
+	call	read_mem16
+	mv	a5,a0
+	sh	a5,-24(s0)
+	lui	a5,%hi(.LC16)
+	addi	a0,a5,%lo(.LC16)
+	call	print_str
+	lw	a5,-36(s0)
+	li	a1,8
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC13)
+	addi	a0,a5,%lo(.LC13)
+	call	print_str
+	lhu	a5,-24(s0)
+	li	a1,4
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC2)
+	addi	a0,a5,%lo(.LC2)
+	call	print_str
+	j	.L65
+.L71:
+	lw	a5,-68(s0)
+	addi	a4,a5,16
+	lui	a5,%hi(.LC17)
+	addi	a1,a5,%lo(.LC17)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L74
+	lw	a5,-68(s0)
+	addi	a5,a5,32
+	addi	a4,s0,-40
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	beq	a5,zero,.L75
 	lui	a5,%hi(.LC18)
 	addi	a0,a5,%lo(.LC18)
 	call	print_str
+	j	.L65
+.L75:
+	lw	a5,-40(s0)
+	mv	a0,a5
+	call	read_mem8
+	mv	a5,a0
+	sb	a5,-21(s0)
+	lui	a5,%hi(.LC19)
+	addi	a0,a5,%lo(.LC19)
+	call	print_str
+	lw	a5,-40(s0)
+	li	a1,8
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC13)
+	addi	a0,a5,%lo(.LC13)
+	call	print_str
+	lbu	a5,-21(s0)
+	li	a1,2
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC2)
+	addi	a0,a5,%lo(.LC2)
+	call	print_str
+	j	.L65
+.L74:
+	lw	a5,-68(s0)
+	addi	a4,a5,16
+	lui	a5,%hi(.LC20)
+	addi	a1,a5,%lo(.LC20)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	beq	a5,zero,.L77
+	lw	a5,-68(s0)
+	addi	a4,a5,16
+	lui	a5,%hi(.LC21)
+	addi	a1,a5,%lo(.LC21)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L78
+.L77:
+	lw	a5,-68(s0)
+	lbu	a5,32(a5)
+	beq	a5,zero,.L79
+	lw	a5,-68(s0)
+	lbu	a5,48(a5)
+	bne	a5,zero,.L80
+.L79:
+	lui	a5,%hi(.LC22)
+	addi	a0,a5,%lo(.LC22)
+	call	print_str
+	j	.L65
+.L80:
+	lw	a5,-68(s0)
+	addi	a5,a5,32
+	addi	a4,s0,-44
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	bne	a5,zero,.L82
+	lw	a5,-68(s0)
+	addi	a5,a5,48
+	addi	a4,s0,-48
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	beq	a5,zero,.L83
+.L82:
+	lui	a5,%hi(.LC23)
+	addi	a0,a5,%lo(.LC23)
+	call	print_str
+	j	.L65
+.L83:
+	lw	a5,-44(s0)
+	lw	a4,-48(s0)
+	mv	a1,a4
+	mv	a0,a5
+	call	write_mem
+	lui	a5,%hi(.LC12)
+	addi	a0,a5,%lo(.LC12)
+	call	print_str
+	lw	a5,-44(s0)
+	li	a1,8
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC24)
+	addi	a0,a5,%lo(.LC24)
+	call	print_str
+	lw	a5,-48(s0)
+	li	a1,8
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC25)
+	addi	a0,a5,%lo(.LC25)
+	call	print_str
+	j	.L65
+.L78:
+	lw	a5,-68(s0)
+	addi	a4,a5,16
+	lui	a5,%hi(.LC26)
+	addi	a1,a5,%lo(.LC26)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L84
+	lw	a5,-68(s0)
+	lbu	a5,32(a5)
+	beq	a5,zero,.L85
+	lw	a5,-68(s0)
+	lbu	a5,48(a5)
+	bne	a5,zero,.L86
+.L85:
+	lui	a5,%hi(.LC27)
+	addi	a0,a5,%lo(.LC27)
+	call	print_str
+	j	.L65
+.L86:
+	lw	a5,-68(s0)
+	addi	a5,a5,32
+	addi	a4,s0,-52
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	bne	a5,zero,.L88
+	lw	a5,-68(s0)
+	addi	a5,a5,48
+	addi	a4,s0,-56
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	beq	a5,zero,.L89
+.L88:
+	lui	a5,%hi(.LC28)
+	addi	a0,a5,%lo(.LC28)
+	call	print_str
+	j	.L65
+.L89:
+	lw	a5,-56(s0)
+	sh	a5,-20(s0)
+	lw	a5,-52(s0)
+	lhu	a4,-20(s0)
+	mv	a1,a4
+	mv	a0,a5
+	call	write_mem16
+	lui	a5,%hi(.LC16)
+	addi	a0,a5,%lo(.LC16)
+	call	print_str
+	lw	a5,-52(s0)
+	li	a1,8
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC24)
+	addi	a0,a5,%lo(.LC24)
+	call	print_str
+	lhu	a5,-20(s0)
+	li	a1,4
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC29)
+	addi	a0,a5,%lo(.LC29)
+	call	print_str
+	j	.L65
+.L84:
+	lw	a5,-68(s0)
+	addi	a4,a5,16
+	lui	a5,%hi(.LC30)
+	addi	a1,a5,%lo(.LC30)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L90
+	lw	a5,-68(s0)
+	lbu	a5,32(a5)
+	beq	a5,zero,.L91
+	lw	a5,-68(s0)
+	lbu	a5,48(a5)
+	bne	a5,zero,.L92
+.L91:
+	lui	a5,%hi(.LC31)
+	addi	a0,a5,%lo(.LC31)
+	call	print_str
+	j	.L65
+.L92:
+	lw	a5,-68(s0)
+	addi	a5,a5,32
+	addi	a4,s0,-60
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	bne	a5,zero,.L94
+	lw	a5,-68(s0)
+	addi	a5,a5,48
+	addi	a4,s0,-64
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	beq	a5,zero,.L95
+.L94:
+	lui	a5,%hi(.LC32)
+	addi	a0,a5,%lo(.LC32)
+	call	print_str
+	j	.L65
+.L95:
+	lw	a5,-64(s0)
+	sb	a5,-17(s0)
+	lw	a5,-60(s0)
+	lbu	a4,-17(s0)
+	mv	a1,a4
+	mv	a0,a5
+	call	write_mem8
+	lui	a5,%hi(.LC19)
+	addi	a0,a5,%lo(.LC19)
+	call	print_str
+	lw	a5,-60(s0)
+	li	a1,8
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC24)
+	addi	a0,a5,%lo(.LC24)
+	call	print_str
+	lbu	a5,-17(s0)
+	li	a1,2
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC33)
+	addi	a0,a5,%lo(.LC33)
+	call	print_str
+	j	.L65
+.L90:
+	lui	a5,%hi(.LC34)
+	addi	a0,a5,%lo(.LC34)
+	call	print_str
 .L65:
-	lw	ra,44(sp)
-	lw	s0,40(sp)
-	addi	sp,sp,48
+	lw	ra,76(sp)
+	lw	s0,72(sp)
+	addi	sp,sp,80
 	jr	ra
 	.size	handle_mem_command, .-handle_mem_command
 	.section	.rodata
 	.align	2
-.LC19:
+.LC35:
 	.string	"gpio"
 	.align	2
-.LC20:
+.LC36:
 	.string	"mem"
 	.align	2
-.LC21:
+.LC37:
 	.string	"help"
 	.align	2
-.LC22:
-	.string	"\r\nSupported Command:\r\n    gpio <in|out> [hex_value]\r\n    mem <read|write> <addr> [hex_value]\r\n"
+.LC38:
+	.string	"\r\nSupported Command:\r\n    gpio <in|out> [hex_value]\r\n    mem <read|write[8|16|32]> <addr> [hex_value]\r\n"
 	.align	2
-.LC23:
+.LC39:
 	.string	"\r\nUnknown command. Type 'help'\r\n"
 	.text
 	.align	2
@@ -812,43 +1104,43 @@ dispatch_command:
 	addi	s0,sp,32
 	sw	a0,-20(s0)
 	lw	a4,-20(s0)
-	lui	a5,%hi(.LC19)
-	addi	a1,a5,%lo(.LC19)
+	lui	a5,%hi(.LC35)
+	addi	a1,a5,%lo(.LC35)
 	mv	a0,a4
 	call	strcmp
 	mv	a5,a0
-	bne	a5,zero,.L76
+	bne	a5,zero,.L97
 	lw	a0,-20(s0)
 	call	handle_gpio_command
-	j	.L80
-.L76:
+	j	.L101
+.L97:
 	lw	a4,-20(s0)
-	lui	a5,%hi(.LC20)
-	addi	a1,a5,%lo(.LC20)
+	lui	a5,%hi(.LC36)
+	addi	a1,a5,%lo(.LC36)
 	mv	a0,a4
 	call	strcmp
 	mv	a5,a0
-	bne	a5,zero,.L78
+	bne	a5,zero,.L99
 	lw	a0,-20(s0)
 	call	handle_mem_command
-	j	.L80
-.L78:
+	j	.L101
+.L99:
 	lw	a4,-20(s0)
-	lui	a5,%hi(.LC21)
-	addi	a1,a5,%lo(.LC21)
+	lui	a5,%hi(.LC37)
+	addi	a1,a5,%lo(.LC37)
 	mv	a0,a4
 	call	strcmp
 	mv	a5,a0
-	bne	a5,zero,.L79
-	lui	a5,%hi(.LC22)
-	addi	a0,a5,%lo(.LC22)
+	bne	a5,zero,.L100
+	lui	a5,%hi(.LC38)
+	addi	a0,a5,%lo(.LC38)
 	call	print_str
-	j	.L80
-.L79:
-	lui	a5,%hi(.LC23)
-	addi	a0,a5,%lo(.LC23)
+	j	.L101
+.L100:
+	lui	a5,%hi(.LC39)
+	addi	a0,a5,%lo(.LC39)
 	call	print_str
-.L80:
+.L101:
 	nop
 	lw	ra,28(sp)
 	lw	s0,24(sp)
@@ -857,7 +1149,7 @@ dispatch_command:
 	.size	dispatch_command, .-dispatch_command
 	.section	.rodata
 	.align	2
-.LC24:
+.LC40:
 	.string	"> "
 	.text
 	.align	2
@@ -868,8 +1160,8 @@ command_handler:
 	sw	ra,124(sp)
 	sw	s0,120(sp)
 	addi	s0,sp,128
-	lui	a5,%hi(.LC24)
-	addi	a0,a5,%lo(.LC24)
+	lui	a5,%hi(.LC40)
+	addi	a0,a5,%lo(.LC40)
 	call	print_str
 	addi	a4,s0,-60
 	lui	a5,%hi(last_cmd.0)
@@ -879,39 +1171,39 @@ command_handler:
 	call	get_str_with_history
 	sw	zero,-20(s0)
 	sw	zero,-24(s0)
-	j	.L82
-.L85:
+	j	.L103
+.L106:
 	lw	a5,-24(s0)
 	addi	a5,a5,-16
 	add	a5,a5,s0
 	lbu	a4,-44(a5)
 	li	a5,32
-	beq	a4,a5,.L83
+	beq	a4,a5,.L104
 	lw	a5,-24(s0)
 	addi	a5,a5,-16
 	add	a5,a5,s0
 	lbu	a4,-44(a5)
 	li	a5,9
-	beq	a4,a5,.L83
+	beq	a4,a5,.L104
 	li	a5,1
 	sw	a5,-20(s0)
-	j	.L84
-.L83:
+	j	.L105
+.L104:
 	lw	a5,-24(s0)
 	addi	a5,a5,1
 	sw	a5,-24(s0)
-.L82:
+.L103:
 	lw	a5,-24(s0)
 	addi	a5,a5,-16
 	add	a5,a5,s0
 	lbu	a5,-44(a5)
-	bne	a5,zero,.L85
-.L84:
+	bne	a5,zero,.L106
+.L105:
 	lw	a5,-20(s0)
-	beq	a5,zero,.L86
+	beq	a5,zero,.L107
 	sw	zero,-28(s0)
-	j	.L87
-.L89:
+	j	.L108
+.L110:
 	lw	a5,-28(s0)
 	addi	a5,a5,-16
 	add	a5,a5,s0
@@ -925,18 +1217,18 @@ command_handler:
 	addi	a5,a5,-16
 	add	a5,a5,s0
 	lbu	a5,-44(a5)
-	beq	a5,zero,.L90
+	beq	a5,zero,.L111
 	lw	a5,-28(s0)
 	addi	a5,a5,1
 	sw	a5,-28(s0)
-.L87:
+.L108:
 	lw	a4,-28(s0)
 	li	a5,31
-	bleu	a4,a5,.L89
-	j	.L86
-.L90:
+	bleu	a4,a5,.L110
+	j	.L107
+.L111:
 	nop
-.L86:
+.L107:
 	addi	a4,s0,-124
 	addi	a5,s0,-60
 	mv	a1,a4
@@ -953,7 +1245,7 @@ command_handler:
 	.size	command_handler, .-command_handler
 	.section	.rodata
 	.align	2
-.LC25:
+.LC41:
 	.string	"Welcome to PaSoC BIOS console!\r\n"
 	.text
 	.align	2
@@ -964,12 +1256,12 @@ main:
 	sw	ra,12(sp)
 	sw	s0,8(sp)
 	addi	s0,sp,16
-	lui	a5,%hi(.LC25)
-	addi	a0,a5,%lo(.LC25)
+	lui	a5,%hi(.LC41)
+	addi	a0,a5,%lo(.LC41)
 	call	print_str
-.L92:
+.L113:
 	call	command_handler
-	j	.L92
+	j	.L113
 	.size	main, .-main
 	.local	last_cmd.0
 	.comm	last_cmd.0,32,4

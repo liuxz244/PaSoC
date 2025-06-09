@@ -209,47 +209,119 @@ void handle_gpio_command(const Command *cmd)
 }
 
 /**
- * @brief 处理内存读写命令，支持"read"和"write"子命令。
- *
- * 格式: mem <read|write> <addr> [hex_value]
- *   - mem read <addr>
- *   - mem write <addr> <hex_value>
+ * @brief 处理内存读写命令，支持8/16/32位读写
+ * 
+ * 请确保在8/16位读写时地址是对齐的，否则可能会读写出错
+ * 
+ * 格式: mem <read|write[8|16|32]> <addr> [hex_value]
+ *   - mem read[8|16|32] <addr>
+ *   - mem write[8|16|32] <addr> <hex_value>
  *
  * @param[in] cmd  已解析的Command结构体（主命令已为"mem"）
+ * @note
+ *   - 缺省的 read/write 等同于 read32/write32。
  */
 void handle_mem_command(const Command *cmd)
 {
-    if (strcmp(cmd->subcmd, "read") == 0)
-    {
+    // --- Read Commands ---
+    // read/read32
+    if (strcmp(cmd->subcmd, "read") == 0 || strcmp(cmd->subcmd, "read32") == 0) {
         uint32_t addr;
         if (parse_hex(cmd->param1, &addr) != 0) {
-            print_str("\r\nError: invalid address. Usage: mem read <addr>\r\n");
+            print_str("\r\nError: invalid address. Usage: mem read[32] <addr>\r\n");
             return;
         }
         uint32_t value = read_mem(addr);
-        print_str("\r\nMEM[0x"); print_hex(addr, 8);
-        print_str("] = 0x"); print_hex(value, 8);
-        print_str("\r\n");
+        print_str("\r\nMEM32[0x"); print_hex(addr, 8);
+        print_str("] = 0x"); print_hex(value, 8); print_str("\r\n");
+        return;
+    } 
+    // read16
+    if (strcmp(cmd->subcmd, "read16") == 0) {
+        uint32_t addr;
+        if (parse_hex(cmd->param1, &addr) != 0) {
+            print_str("\r\nError: invalid address. Usage: mem read16 <addr>\r\n");
+            return;
+        }
+        uint16_t value = read_mem16(addr);
+        print_str("\r\nMEM16[0x"); print_hex(addr, 8);
+        print_str("] = 0x"); print_hex(value, 4); print_str("\r\n");
+        return;
     }
-    else if (strcmp(cmd->subcmd, "write") == 0)
-    {
+    // read8
+    if (strcmp(cmd->subcmd, "read8") == 0) {
+        uint32_t addr;
+        if (parse_hex(cmd->param1, &addr) != 0) {
+            print_str("\r\nError: invalid address. Usage: mem read8 <addr>\r\n");
+            return;
+        }
+        uint8_t value = read_mem8(addr);
+        print_str("\r\nMEM8[0x"); print_hex(addr, 8);
+        print_str("] = 0x"); print_hex(value, 2); print_str("\r\n");
+        return;
+    }
+
+    // --- Write Commands ---
+    // write/write32
+    if (strcmp(cmd->subcmd, "write") == 0 || strcmp(cmd->subcmd, "write32") == 0) {
         uint32_t addr, value;
         if (cmd->param1[0]==0 || cmd->param2[0]==0) {
-            print_str("\r\nError: incomplete arguments. Usage: mem write <addr> <hex_value>\r\n");
+            print_str("\r\nError: incomplete args. Usage: mem write[32] <addr> <hex_value>\r\n");
             return;
         }
         if (parse_hex(cmd->param1, &addr) != 0 || parse_hex(cmd->param2, &value) != 0) {
-            print_str("\r\nError: invalid address or value. Usage: mem write <addr> <hex_value>\r\n");
+            print_str("\r\nError: invalid address or value. Usage: mem write[32] <addr> <hex_value>\r\n");
             return;
         }
         write_mem(addr, value);
-        print_str("\r\nMEM[0x"); print_hex(addr, 8);
+        print_str("\r\nMEM32[0x"); print_hex(addr, 8);
         print_str("] <= 0x"); print_hex(value, 8);
-        print_str("\r\nMemory write done!\r\n");
+        print_str("\r\nMemory write32 done!\r\n");
+        return;
     }
-    else {
-        print_str("\r\nError: unknown subcmd. Usage: mem <read|write> <addr> [hex_value]\r\n");
+    // write16
+    if (strcmp(cmd->subcmd, "write16") == 0) {
+        uint32_t addr, tmp;
+        uint16_t value;
+        if (cmd->param1[0] == 0 || cmd->param2[0] == 0) {
+            print_str("\r\nError: incomplete args. Usage: mem write16 <addr> <hex_value>\r\n");
+            return;
+        }
+        if (parse_hex(cmd->param1, &addr) != 0 || parse_hex(cmd->param2, &tmp) != 0) {
+            print_str("\r\nError: invalid address or value. Usage: mem write16 <addr> <hex_value>\r\n");
+            return;
+        }
+        value = (uint16_t)tmp;
+        write_mem16(addr, value);
+        print_str("\r\nMEM16[0x"); print_hex(addr, 8);
+        print_str("] <= 0x"); print_hex(value, 4);
+        print_str("\r\nMemory write16 done!\r\n");
+        return;
     }
+
+    // write8
+    if (strcmp(cmd->subcmd, "write8") == 0) {
+        uint32_t addr, tmp;
+        uint8_t value;
+        if (cmd->param1[0] == 0 || cmd->param2[0] == 0) {
+            print_str("\r\nError: incomplete args. Usage: mem write8 <addr> <hex_value>\r\n");
+            return;
+        }
+        if (parse_hex(cmd->param1, &addr) != 0 || parse_hex(cmd->param2, &tmp) != 0) {
+            print_str("\r\nError: invalid address or value. Usage: mem write8 <addr> <hex_value>\r\n");
+            return;
+        }
+        value = (uint8_t)tmp;
+        write_mem8(addr, value);
+        print_str("\r\nMEM8[0x"); print_hex(addr, 8);
+        print_str("] <= 0x"); print_hex(value, 2);
+        print_str("\r\nMemory write8 done!\r\n");
+        return;
+    }
+
+    // --- Unknown subcmd ---
+    print_str("\r\nError: unknown subcmd. Usage:\r\n"
+              "    mem <read|write[8|16|32]> <addr> [hex_value]\r\n");
 }
 
 
@@ -272,7 +344,7 @@ void dispatch_command(const Command *cmd)
     else if(strcmp(cmd->main, "help")==0) {
         print_str("\r\nSupported Command:\r\n"
                   "    gpio <in|out> [hex_value]\r\n"
-                  "    mem <read|write> <addr> [hex_value]\r\n");
+                  "    mem <read|write[8|16|32]> <addr> [hex_value]\r\n");
     }
     else {
         print_str("\r\nUnknown command. Type 'help'\r\n");

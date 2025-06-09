@@ -18,7 +18,47 @@ class HexTest extends AnyFlatSpec with ChiselScalatestTester {
             val maxCycles = 2000
             // 当exit不为1且未超出最大步数时循环
             while(!dut.io.exit.peek().litToBoolean && stepCount < maxCycles) {
+                if (dut.io.sdram.start.peek().litToBoolean) {
+                    dut.io.sdram.rec_data.poke(0x4541.U)
+                    dut.clock.step(1)
+                    stepCount += 1
+                    // 1
+                    dut.io.sdram.data_ready.poke(true.B)
+                    dut.clock.step(1)
+                    stepCount += 1
+                    dut.io.sdram.data_ready.poke(false.B)
+                    dut.io.sdram.rec_data.poke(0x4642.U)
+                    dut.clock.step(1)
+                    stepCount += 1
+                    // 2
+                    dut.io.sdram.data_ready.poke(true.B)
+                    dut.clock.step(1)
+                    stepCount += 1
+                    dut.io.sdram.data_ready.poke(false.B)
+                    dut.io.sdram.rec_data.poke(0x4743.U)
+                    dut.clock.step(1)
+                    stepCount += 1
+                    // 3
+                    dut.io.sdram.data_ready.poke(true.B)
+                    dut.clock.step(1)
+                    stepCount += 1
+                    dut.io.sdram.data_ready.poke(false.B)
+                    dut.io.sdram.rec_data.poke(0x4844.U)
+                    dut.clock.step(1)
+                    stepCount += 1
+                    // 4
+                    dut.io.sdram.data_ready.poke(true.B)
+                    dut.io.sdram.done.poke(true.B)
+                    dut.clock.step(1)
+                    stepCount += 1
+                    dut.io.sdram.data_ready.poke(false.B)
+                    dut.io.sdram.done.poke(false.B)
+                    dut.io.sdram.idle.poke(false.B)
+                    dut.clock.step(1)
+                    stepCount += 1
+                }
                 dut.clock.step(1)  // 给一个时钟脉冲
+                dut.io.sdram.idle.poke(true.B)
                 stepCount += 1
             }
             if (stepCount >= maxCycles) {

@@ -23,10 +23,11 @@ class PaSoC(initHex: String) extends Module {
         val exit    = Output(Bool())
         val rx_flag = Input( Bool())
         val rx_data = Input(UInt(8.W))
+        val sdram   = new SdramDriverPortIO(16)
     })
 
     val core  = Module(new PasoRV())
-    val imem  = Module(new ITCM(2048, initHex))
+    val imem  = Module(new ITCM(4096, initHex))
     val dmem  = Module(new DTCM(2048, initHex))
     val gpio  = Module(new GPIOCtrl())
     val pwm   = Module(new PWMCtrl())
@@ -34,9 +35,10 @@ class PaSoC(initHex: String) extends Module {
     val oled  = Module(new OledCtrl())
     val plic  = Module(new PLIC())
     val clint = Module(new CLINT())
+    val sdram = Module(new SdramCtrl)
 
     // 添加可配置外设数量的总线选择器
-    val dbus = Module(new DBusMux(7))
+    val dbus = Module(new DBusMux(8))
     core.io.ibus <> imem.io.bus
     core.io.dbus <> dbus.io.bus
     // 将dmem连接到dbusMux第1个外设端口，gcc规定不能和ITCM的地址重叠
@@ -47,14 +49,16 @@ class PaSoC(initHex: String) extends Module {
     oled.io.bus  <> dbus.io.devs(4)
     plic.io.bus  <> dbus.io.devs(5)
     clint.io.bus <> dbus.io.devs(6)
+    sdram.io.bus <> dbus.io.devs(7)
     
     // 外设输入输出
-    imem.io.rx   <> io.inst_rx
-    gpio.io.gpio <> io.gpio
-    pwm.io.pwm   <> io.pwm
-    uart.io.tx   <> io.uart_tx
-    uart.io.rx   <> io.uart_rx
-    oled.io.oled <> io.oled
+    imem.io.rx     <> io.inst_rx
+    gpio.io.gpio   <> io.gpio
+    pwm.io.pwm     <> io.pwm
+    uart.io.tx     <> io.uart_tx
+    uart.io.rx     <> io.uart_rx
+    oled.io.oled   <> io.oled
+    sdram.io.sdram <> io.sdram
 
     uart.io.rx_flag := io.rx_flag
     uart.io.rx_data := io.rx_data

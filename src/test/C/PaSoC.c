@@ -454,3 +454,39 @@ void write_mem(uint32_t addr, uint32_t value) {
 uint32_t read_mem(uint32_t addr) {
     return *((volatile uint32_t *)addr);
 }
+
+/**
+ * @brief 向指定的内存地址写入16位数据。
+ * @param addr 目标内存地址。应当对齐到2字节。
+ * @param value 要写入的数据。
+ */
+void write_mem16(uint32_t addr, uint16_t value) {
+    *((volatile uint16_t *)addr) = value;
+}
+
+/**
+ * @brief 从指定的内存地址读取16位数据。
+ * @param addr 要读取数据的内存地址。应当对齐到2字节。
+ * @return 读取到的数据。
+ */
+uint16_t read_mem16(uint32_t addr) {
+    return *((volatile uint16_t *)addr);
+}
+
+/**
+ * @brief 向指定的内存地址写入8位数据。
+ * @param addr 目标内存地址。
+ * @param value 要写入的数据。
+ */
+void write_mem8(uint32_t addr, uint8_t value) {
+    *((volatile uint8_t *)addr) = value;
+}
+
+/**
+ * @brief 从指定的内存地址读取8位数据。
+ * @param addr 要读取数据的内存地址。
+ * @return 读取到的数据。
+ */
+uint8_t read_mem8(uint32_t addr) {
+    return *((volatile uint8_t *)addr);
+}

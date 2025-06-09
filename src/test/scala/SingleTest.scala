@@ -3,6 +3,7 @@ package PaSoC
 import chisel3._
 import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scala.util.Random
 import Consts._
 
@@ -87,3 +88,4 @@ class UartCtrlTest extends AnyFlatSpec with ChiselScalatestTester {
         }
     }
 }
+
