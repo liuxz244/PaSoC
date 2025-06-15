@@ -3,7 +3,7 @@
 
 #define GPIO_LED_NUM 4
 
-/*
+
 // 流水灯
 int main() {
     int count = 0;
@@ -20,8 +20,8 @@ int main() {
     }
     return 0;
 }
-*/
 
+/*
 // GPIO输入
 int main() {
     uint32_t in_val = gpio_read_in();
@@ -34,3 +34,4 @@ int main() {
     }
     return 0;
 }
+*/

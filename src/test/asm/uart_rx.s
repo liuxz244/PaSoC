@@ -7,10 +7,10 @@
 	.section	.rodata
 	.align	2
 .LC0:
-	.string	"\nInput char: "
+	.string	"\nInput str: "
 	.align	2
 .LC1:
-	.string	"Received: "
+	.string	"\nReceived: "
 	.align	2
 .LC2:
 	.string	"\nInput uint: "
@@ -19,7 +19,7 @@
 	.string	"\nInput hex: "
 	.align	2
 .LC4:
-	.string	"Received: 0x"
+	.string	"\nReceived: 0x"
 	.text
 	.align	2
 	.globl	main

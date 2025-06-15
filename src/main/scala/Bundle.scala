@@ -1,6 +1,6 @@
 package PaSoC
 
-import chisel3._       // chisel本体
+import chisel3._   // chisel本体
 import Consts._
 
 
@@ -22,8 +22,8 @@ class DBusPortIO extends Bundle {
 }
 
 class GPIOPortIO() extends Bundle{
-    val In  = Input(UInt(GPIO_LEN.W))   // 8位GPIO输入
-    val Out = Output(UInt(GPIO_LEN.W))  // 8位GPIO输出
+    val In  = Input(UInt(GPIO_LEN.W))   // GPIO输入
+    val Out = Output(UInt(GPIO_LEN.W))  // GPIO输出
     val debug = Output(Bool())  // 要读取输入时拉高，仿真用
 }
 
@@ -34,6 +34,16 @@ class OLEDLineIO extends Bundle {
     val str_line3 = Output(UInt(128.W))
 }
 
+class SdramPortIO extends Bundle {
+  val o_valid  = Output(Bool())      // 请求数据操作
+  val i_ready  = Input(Bool())       // 外设响应信号
+  val o_addr   = Output(UInt(32.W))  // 地址
+  val o_wdata  = Output(UInt(32.W))  // 写数据
+  val o_wstrb  = Output(UInt(4.W))   // 写使能位，每一位对应一个字节有效，为0则读
+  val i_rdata  = Input(UInt(32.W))   // 读数据
+}
+
+/*
 // Chisel与SDRAM Verilog顶层交互
 class SdramDriverPortIO(val dataWidthBits: Int = 16) extends Bundle {
     val operate_addr  = Output(UInt(26.W))  // 操作数据地址
@@ -47,3 +57,4 @@ class SdramDriverPortIO(val dataWidthBits: Int = 16) extends Bundle {
     val done          = Input(Bool())  // 整个读写完成
     val idle          = Input(Bool())  // 模块空闲，可以开始读写
 }
+*/

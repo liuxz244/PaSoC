@@ -3,7 +3,8 @@ ENTRY(_start)
 MEMORY
 {
     INSTR (rx) : ORIGIN = 0x00000000, LENGTH = 16K  /* 指令空间 */
-    DATA  (rw) : ORIGIN = 0x10000000, LENGTH = 8K   /* 数据空间 */
+    DATA  (rw) : ORIGIN = 0x10000000, LENGTH = 16K  /* 数据空间 */
+    /*SDRAM (rw) : ORIGIN = 0x70000000, LENGTH = 32M    SDRAM区 */
 }
 
 SECTIONS
@@ -15,7 +16,7 @@ SECTIONS
         *(.text .text.*)  /* 所有其他代码段 */
     } > INSTR
 
-     /* ---- 数据部分 ---- */
+    /* ---- 数据部分 ---- */
     . = ORIGIN(DATA);
     /* 只读数据段 */
     .rodata : {
@@ -33,7 +34,6 @@ SECTIONS
         *(COMMON)
     } > DATA
 
-    /* 栈设置 */
     _end = .;  /* 堆起始 */
     STACK_SIZE = 4K;  /* 可以自己调节需要多少栈 */
     . = ORIGIN(DATA) + LENGTH(DATA) - STACK_SIZE;

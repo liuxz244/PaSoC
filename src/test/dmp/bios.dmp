@@ -1,11 +1,11 @@
 
-/tmp/tmp.a3CLiIQ0uk/bios.elf:     file format elf32-littleriscv
+/tmp/tmp.iMd7jOg8JF/bios.elf:     file format elf32-littleriscv
 
 
 Disassembly of section .text:
 
 00000000 <_start>:
-       0:	10002117          	auipc	sp,0x10002
+       0:	10004117          	auipc	sp,0x10004
        4:	00010113          	mv	sp,sp
        8:	2f4010ef          	jal	12fc <main>
        c:	01400293          	li	t0,20
@@ -15,7 +15,7 @@ Disassembly of section .text:
       1c:	0000006f          	j	1c <_start+0x1c>
 
 00000020 <print_char>:
-      20:	fe010113          	addi	sp,sp,-32 # 10001fe0 <_stack_limit+0xfe0>
+      20:	fe010113          	addi	sp,sp,-32 # 10003fe0 <_stack_limit+0xfe0>
       24:	00112e23          	sw	ra,28(sp)
       28:	00812c23          	sw	s0,24(sp)
       2c:	02010413          	addi	s0,sp,32
@@ -23,7 +23,7 @@ Disassembly of section .text:
       34:	fef407a3          	sb	a5,-17(s0)
       38:	300007b7          	lui	a5,0x30000
       3c:	fef44703          	lbu	a4,-17(s0)
-      40:	00e78023          	sb	a4,0(a5) # 30000000 <_stack_top+0x1fffe000>
+      40:	00e78023          	sb	a4,0(a5) # 30000000 <_stack_top+0x1fffc000>
       44:	00000013          	nop
       48:	01c12083          	lw	ra,28(sp)
       4c:	01812403          	lw	s0,24(sp)
@@ -158,7 +158,7 @@ Disassembly of section .text:
      220:	00812c23          	sw	s0,24(sp)
      224:	02010413          	addi	s0,sp,32
      228:	300007b7          	lui	a5,0x30000
-     22c:	00478793          	addi	a5,a5,4 # 30000004 <_stack_top+0x1fffe004>
+     22c:	00478793          	addi	a5,a5,4 # 30000004 <_stack_top+0x1fffc004>
      230:	0007c783          	lbu	a5,0(a5)
      234:	fef407a3          	sb	a5,-17(s0)
      238:	fef44783          	lbu	a5,-17(s0)
@@ -1297,7 +1297,7 @@ Disassembly of section .rodata:
 1000002a:	0078                	.insn	2, 0x0078
 1000002c:	0a0d                	.insn	2, 0x0a0d
 1000002e:	0000                	.insn	2, 0x0000
-10000030:	0074756f          	jal	a0,10047836 <_stack_top+0x45836>
+10000030:	0074756f          	jal	a0,10047836 <_stack_top+0x43836>
 10000034:	0a0d                	.insn	2, 0x0a0d
 10000036:	7245                	.insn	2, 0x7245
 10000038:	6f72                	.insn	2, 0x6f72
@@ -1360,7 +1360,7 @@ Disassembly of section .rodata:
 100000ba:	4f20                	.insn	2, 0x4f20
 100000bc:	5455                	.insn	2, 0x5455
 100000be:	7420                	.insn	2, 0x7420
-100000c0:	7830206f          	j	10003042 <_stack_top+0x1042>
+100000c0:	7830206f          	j	10003042 <_stack_limit+0x42>
 100000c4:	0000                	.insn	2, 0x0000
 100000c6:	0000                	.insn	2, 0x0000
 100000c8:	0a0d                	.insn	2, 0x0a0d
@@ -1526,7 +1526,7 @@ Disassembly of section .rodata:
 10000226:	3a72                	.insn	2, 0x3a72
 10000228:	6920                	.insn	2, 0x6920
 1000022a:	636e                	.insn	2, 0x636e
-1000022c:	6c706d6f          	jal	s10,100070f2 <_stack_top+0x50f2>
+1000022c:	6c706d6f          	jal	s10,100070f2 <_stack_top+0x30f2>
 10000230:	7465                	.insn	2, 0x7465
 10000232:	2065                	.insn	2, 0x2065
 10000234:	7261                	.insn	2, 0x7261
@@ -1597,7 +1597,7 @@ Disassembly of section .rodata:
 100002c6:	6972                	.insn	2, 0x6972
 100002c8:	6574                	.insn	2, 0x6574
 100002ca:	64203233          	.insn	4, 0x64203233
-100002ce:	21656e6f          	jal	t3,100564e4 <_stack_top+0x544e4>
+100002ce:	21656e6f          	jal	t3,100564e4 <_stack_top+0x524e4>
 100002d2:	0a0d                	.insn	2, 0x0a0d
 100002d4:	0000                	.insn	2, 0x0000
 100002d6:	0000                	.insn	2, 0x0000
@@ -1610,7 +1610,7 @@ Disassembly of section .rodata:
 100002e6:	3a72                	.insn	2, 0x3a72
 100002e8:	6920                	.insn	2, 0x6920
 100002ea:	636e                	.insn	2, 0x636e
-100002ec:	6c706d6f          	jal	s10,100071b2 <_stack_top+0x51b2>
+100002ec:	6c706d6f          	jal	s10,100071b2 <_stack_top+0x31b2>
 100002f0:	7465                	.insn	2, 0x7465
 100002f2:	2065                	.insn	2, 0x2065
 100002f4:	7261                	.insn	2, 0x7261
@@ -1678,7 +1678,7 @@ Disassembly of section .rodata:
 1000037c:	6574                	.insn	2, 0x6574
 1000037e:	3631                	.insn	2, 0x3631
 10000380:	6420                	.insn	2, 0x6420
-10000382:	21656e6f          	jal	t3,10056598 <_stack_top+0x54598>
+10000382:	21656e6f          	jal	t3,10056598 <_stack_top+0x52598>
 10000386:	0a0d                	.insn	2, 0x0a0d
 10000388:	0000                	.insn	2, 0x0000
 1000038a:	0000                	.insn	2, 0x0000
@@ -1691,7 +1691,7 @@ Disassembly of section .rodata:
 1000039a:	3a72                	.insn	2, 0x3a72
 1000039c:	6920                	.insn	2, 0x6920
 1000039e:	636e                	.insn	2, 0x636e
-100003a0:	6c706d6f          	jal	s10,10007266 <_stack_top+0x5266>
+100003a0:	6c706d6f          	jal	s10,10007266 <_stack_top+0x3266>
 100003a4:	7465                	.insn	2, 0x7465
 100003a6:	2065                	.insn	2, 0x2065
 100003a8:	7261                	.insn	2, 0x7261
@@ -1807,7 +1807,7 @@ Disassembly of section .rodata:
 100004a2:	0000                	.insn	2, 0x0000
 100004a4:	0a0d                	.insn	2, 0x0a0d
 100004a6:	70707553          	.insn	4, 0x70707553
-100004aa:	6574726f          	jal	tp,10048300 <_stack_top+0x46300>
+100004aa:	6574726f          	jal	tp,10048300 <_stack_top+0x44300>
 100004ae:	2064                	.insn	2, 0x2064
 100004b0:	6d6d6f43          	.insn	4, 0x6d6d6f43
 100004b4:	6e61                	.insn	2, 0x6e61
@@ -1863,15 +1863,15 @@ Disassembly of section .rodata:
 10000530:	203e                	.insn	2, 0x203e
 10000532:	0000                	.insn	2, 0x0000
 10000534:	636c6557          	.insn	4, 0x636c6557
-10000538:	20656d6f          	jal	s10,1005673e <_stack_top+0x5473e>
+10000538:	20656d6f          	jal	s10,1005673e <_stack_top+0x5273e>
 1000053c:	6f74                	.insn	2, 0x6f74
 1000053e:	5020                	.insn	2, 0x5020
 10000540:	5361                	.insn	2, 0x5361
-10000542:	4220436f          	jal	t1,10004964 <_stack_top+0x2964>
+10000542:	4220436f          	jal	t1,10004964 <_stack_top+0x964>
 10000546:	4f49                	.insn	2, 0x4f49
 10000548:	6f632053          	.insn	4, 0x6f632053
 1000054c:	736e                	.insn	2, 0x736e
-1000054e:	21656c6f          	jal	s8,10056764 <_stack_top+0x54764>
+1000054e:	21656c6f          	jal	s8,10056764 <_stack_top+0x52764>
 10000552:	0a0d                	.insn	2, 0x0a0d
 	...
 

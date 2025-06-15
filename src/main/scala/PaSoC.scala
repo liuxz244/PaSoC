@@ -18,27 +18,25 @@ class PaSoC(initHex: String) extends Module {
         val pwm     = Output(UInt(PWM_LEN.W))
         val uart_tx = Output(Bool())
         val uart_rx = Input( Bool())
-        val oled    = new OLEDLineIO()
         val irq     = Input(UInt(7.W))
         val exit    = Output(Bool())
         val rx_flag = Input( Bool())
         val rx_data = Input(UInt(8.W))
-        val sdram   = new SdramDriverPortIO(16)
+        val sdram   = new SdramPortIO()
     })
 
     val core  = Module(new PasoRV())
     val imem  = Module(new ITCM(4096, initHex))
-    val dmem  = Module(new DTCM(2048, initHex))
+    val dmem  = Module(new DTCM(4096, initHex))
     val gpio  = Module(new GPIOCtrl())
     val pwm   = Module(new PWMCtrl())
     val uart  = Module(new UartCtrl())
-    val oled  = Module(new OledCtrl())
     val plic  = Module(new PLIC())
     val clint = Module(new CLINT())
     val sdram = Module(new SdramCtrl)
 
     // 添加可配置外设数量的总线选择器
-    val dbus = Module(new DBusMux(8))
+    val dbus = Module(new DBusMux(7))
     core.io.ibus <> imem.io.bus
     core.io.dbus <> dbus.io.bus
     // 将dmem连接到dbusMux第1个外设端口，gcc规定不能和ITCM的地址重叠
@@ -46,10 +44,9 @@ class PaSoC(initHex: String) extends Module {
     dmem.io.bus  <> dbus.io.devs(1)
     pwm.io.bus   <> dbus.io.devs(2)
     uart.io.bus  <> dbus.io.devs(3)
-    oled.io.bus  <> dbus.io.devs(4)
+    sdram.io.bus <> dbus.io.devs(4)
     plic.io.bus  <> dbus.io.devs(5)
     clint.io.bus <> dbus.io.devs(6)
-    sdram.io.bus <> dbus.io.devs(7)
     
     // 外设输入输出
     imem.io.rx     <> io.inst_rx
@@ -57,7 +54,6 @@ class PaSoC(initHex: String) extends Module {
     pwm.io.pwm     <> io.pwm
     uart.io.tx     <> io.uart_tx
     uart.io.rx     <> io.uart_rx
-    oled.io.oled   <> io.oled
     sdram.io.sdram <> io.sdram
 
     uart.io.rx_flag := io.rx_flag
@@ -74,7 +70,7 @@ class PaSoC(initHex: String) extends Module {
 }
 
 
-object Main extends App {  // 生成.sv和.v的主函数，命令行输入""
+object Main extends App {  // 生成.sv和.v的主函数
     val hexFile = sys.env.getOrElse("PASOC_INIT_HEX", " ")
     ChiselStage.emitSystemVerilogFile(
         new PaSoC(hexFile),
@@ -86,6 +82,7 @@ object Main extends App {  // 生成.sv和.v的主函数，命令行输入""
     convertReadmemhPathsToWindows(svFile)  // Windows路径转换
     val lineToAdd = "`define ENABLE_INITIAL_MEM_"
     prependLine(s"${filename}.sv", lineToAdd)  // 启用MEM初始化
+    addRwAddrCollisionAttr(svFile)  // 给Vivado添加blockram先写设置
     val cmd = s"sv2v ${filename}.sv -w ${filename}.v"  // 要执行的linux命令
     val output = cmd.!!  // 执行命令并获取返回结果
 }

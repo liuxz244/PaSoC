@@ -43,4 +43,21 @@ object FilePrepender {
         pw.close()
     }
 
+    def addRwAddrCollisionAttr(svFile: String): Unit = {
+        // 匹配形如  reg [xx:0] Memory[0:xxxx];
+        val pattern = """(\s*)reg\s*\[[^]]+\]\s+Memory\s*\[[^]]+\];""".r
+        val lines = Source.fromFile(svFile).getLines().toList
+        // 对每一行检查：若匹配，则在前插入属性
+        val newLines = lines.flatMap { line =>
+            pattern.findFirstIn(line) match {
+                case Some(_) =>
+                    Seq("(* rw_addr_collision = \"yes\" *)", line)
+                case None =>
+                    Seq(line)
+            }
+        }
+        val pw = new PrintWriter(svFile)
+        newLines.foreach(pw.println)
+        pw.close()
+    }
 }

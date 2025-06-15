@@ -192,6 +192,129 @@ class DTCM(val depth: Int, initHex: String) extends Module {
 }
 
 
+// SDRAM 控制器，支持全字、半字、字节读/写（只支持 8MB 32位SDRAM）
+// 字节/半字写通过读-改-写实现
+class SdramCtrl extends Module {
+    val io = IO(new Bundle {
+        val bus   = new DBusPortIO
+        val sdram = new SdramPortIO
+    })
+
+    // 状态机定义
+    val sIdle :: sReq :: sModifyRead :: sModifyWrite :: Nil = Enum(4)
+    val state = RegInit(sIdle)
+
+    // SDRAM请求默认赋初值
+    io.sdram.o_valid := false.B
+    io.sdram.o_addr  := 0.U
+    io.sdram.o_wdata := 0.U
+    io.sdram.o_wstrb := 0.U
+
+    // 总线响应默认输出
+    io.bus.rdata := 0.U
+    io.bus.ready := false.B
+
+    // 地址低28位接SDRAM
+    val sdram_addr = Cat(0.U(4.W), io.bus.addr(27,0))
+
+    // 操作类型判定
+    val ben_fullword = io.bus.ben === "b1111".U
+    val ben_halfword = (io.bus.ben === "b0011".U) || (io.bus.ben === "b1100".U)
+    val ben_byte     = (io.bus.ben === "b0001".U) || (io.bus.ben === "b0010".U) ||
+                       (io.bus.ben === "b0100".U) || (io.bus.ben === "b1000".U)
+
+    // 暂存字节/半字写需要的信息
+    val write_addr   = Reg(UInt(32.W))
+    val write_src    = Reg(UInt(32.W))
+    val write_ben    = Reg(UInt(4.W))
+    val modify_rdata = Reg(UInt(32.W))
+
+    switch(state) {
+        is(sIdle) {
+            io.bus.ready := false.B
+            when(io.bus.valid) {
+                when(io.bus.wen) { // 写操作
+                    when(ben_fullword) {
+                        // 直接全字写
+                        io.sdram.o_valid := true.B
+                        io.sdram.o_addr  := sdram_addr
+                        io.sdram.o_wdata := io.bus.wdata
+                        io.sdram.o_wstrb := "b1111".U
+                        state := sReq
+                    } .elsewhen(ben_halfword || ben_byte) {
+                        // 字节/半字写，需 Read-Modify-Write
+                        write_addr := sdram_addr
+                        write_src  := io.bus.wdata
+                        write_ben  := io.bus.ben
+                        state := sModifyRead
+                    }
+                } .otherwise { // 读操作
+                    io.sdram.o_valid := true.B
+                    io.sdram.o_addr  := sdram_addr
+                    io.sdram.o_wdata := 0.U
+                    io.sdram.o_wstrb := 0.U
+                    state := sReq
+                }
+            }
+        }
+        is(sReq) {
+            io.sdram.o_valid := true.B
+            io.sdram.o_addr  := sdram_addr
+            io.sdram.o_wdata := io.bus.wdata
+            io.sdram.o_wstrb := Mux(io.bus.wen, "b1111".U, "b0000".U)
+            when(io.sdram.i_ready) {
+                when(!io.bus.wen) {
+                    io.bus.rdata := io.sdram.i_rdata
+                    io.bus.ready := true.B
+                }
+                state := sIdle
+            }
+        }
+        is(sModifyRead) {
+            // 发起32位读
+            io.sdram.o_valid := true.B
+            io.sdram.o_addr  := write_addr
+            io.sdram.o_wdata := 0.U
+            io.sdram.o_wstrb := 0.U
+            when(io.sdram.i_ready) {
+                modify_rdata := io.sdram.i_rdata
+                state := sModifyWrite
+            }
+        }
+        is(sModifyWrite) {
+            // 生成修改后的全字数据
+            val new_wdata = WireDefault(modify_rdata)
+            // 字节写：哪个字节有效
+            when(write_ben === "b0001".U) { // byte 0
+                new_wdata := Cat(modify_rdata(31,8), write_src(7,0))
+            } .elsewhen(write_ben === "b0010".U) { // byte 1
+                new_wdata := Cat(modify_rdata(31,16), write_src(15,8), modify_rdata(7,0))
+            } .elsewhen(write_ben === "b0100".U) { // byte 2
+                new_wdata := Cat(modify_rdata(31,24), write_src(23,16), modify_rdata(15,0))
+            } .elsewhen(write_ben === "b1000".U) { // byte 3
+                new_wdata := Cat(write_src(31,24), modify_rdata(23,0))
+            }
+            // 半字写
+            .elsewhen(write_ben === "b0011".U) {   // halfword 0 (低半字)
+                new_wdata := Cat(modify_rdata(31,16), write_src(15,0))
+            } .elsewhen(write_ben === "b1100".U) { // halfword 1 (高半字)
+                new_wdata := Cat(write_src(31,16), modify_rdata(15,0))
+            }
+
+            io.sdram.o_valid := true.B
+            io.sdram.o_addr  := write_addr
+            io.sdram.o_wdata := new_wdata
+            io.sdram.o_wstrb := "b1111".U
+            when(io.sdram.i_ready) {
+                io.bus.ready := true.B
+                state := sIdle
+            }
+        }
+    }
+}
+
+/*
+// ===== 测试发现还是有问题，最终只能实现8MB的读写=====
 // SDRAM控制器：支持32MB容量 W9825G6KH和MT48LC16M16
 //因为只写2个数据太少了会出错，一个32位字会分4次写，还要分别处理高8位和低8位，导致写入延迟较大。
 //所有写操作都通过"读-改-写"4个16bit数据，避免单字节/半字写时丢失其余位
@@ -214,7 +337,7 @@ class SdramCtrl extends Module {
 
     // 高8位/低8位选择, 和SDRAM实际连线相关
     val useHighByte = Wire(Bool())
-    useHighByte := addr28(24)  // 由24位决定SDRAM 16位高/低8位
+    useHighByte := addr28(22)  // 由24位决定SDRAM 16位高/低8位
 
     // 拆分32位总线数据为4个8位
     val wr_bytes = Wire(Vec(4, UInt(8.W)))
@@ -224,7 +347,7 @@ class SdramCtrl extends Module {
     val rdata16_vec = RegInit(VecInit(Seq.fill(4)(0.U(16.W))))
 
     // SDRAM接口连线
-    io.sdram.operate_addr := addr28(23, 0)  // 24位寻址16MB
+    io.sdram.operate_addr := addr28(21, 0)  // 24位寻址16MB
     io.sdram.operate_nums := 4.U
     io.sdram.start        := false.B
     io.sdram.mode         := true.B  // 1=读，0=写
@@ -342,4 +465,4 @@ class SdramCtrl extends Module {
         }
     }
 }
-
+*/
