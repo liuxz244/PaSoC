@@ -58,6 +58,10 @@ object Consts {  // 常量定义
     val ALU_VADDVV  = 19.U(ALU_FNC_LEN.W)
     val VSET        = 20.U(ALU_FNC_LEN.W)
     val ALU_PCNT    = 21.U(ALU_FNC_LEN.W)
+    val ALU_MUL     = 22.U(ALU_FNC_LEN.W)
+    val ALU_MULH    = 23.U(ALU_FNC_LEN.W)
+    val ALU_MULHSU  = 24.U(ALU_FNC_LEN.W)
+    val ALU_MULHU   = 25.U(ALU_FNC_LEN.W)
 
     val OP1_LEN = 2
     val OP1_RS1 = 0.U(OP1_LEN.W)
@@ -137,6 +141,12 @@ object Instructions {  // RISCV指令集
 
     // 減算
     val SUB     = BitPat("b0100000??????????000?????0110011")
+
+    // 乘算
+    val MUL     = BitPat("b0000001??????????000?????0110011")  // 低位有符号乘
+    val MULH    = BitPat("b0000001??????????001?????0110011")  // 高位有符号乘
+    val MULHSU  = BitPat("b0000001??????????010?????0110011")  // 高位有符号-无符号乘
+    val MULHU   = BitPat("b0000001??????????011?????0110011")  // 高位无符号乘
 
     // 論理演算 | 逻辑运算
     val AND     = BitPat("b0000000??????????111?????0110011")

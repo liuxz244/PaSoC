@@ -13,7 +13,7 @@ class PaSoC(initHex: String) extends Module {
     val sim = sys.env.getOrElse("PASOC_SIM", "0") == "1"
 
     val io = IO(new Bundle {
-        val inst_rx = Input(Bool())
+        //val inst_rx = Input(Bool())
         val gpio    = new GPIOPortIO()
         val pwm     = Output(UInt(PWM_LEN.W))
         val uart_tx = Output(Bool())
@@ -49,7 +49,7 @@ class PaSoC(initHex: String) extends Module {
     clint.io.bus <> dbus.io.devs(6)
     
     // 外设输入输出
-    imem.io.rx     <> io.inst_rx
+    //imem.io.rx   <> io.inst_rx
     gpio.io.gpio   <> io.gpio
     pwm.io.pwm     <> io.pwm
     uart.io.tx     <> io.uart_tx

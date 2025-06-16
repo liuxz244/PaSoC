@@ -97,7 +97,7 @@ if [ "$ext" = "c" ]; then
 elif [ "$ext" = "s" ]; then
     echo "检测到汇编源文件，开始汇编流程 ..."
 
-    riscv32-unknown-elf-gcc -nostdlib -march=rv32i_zicsr -c "$input" -o "$obj"
+    riscv32-unknown-elf-gcc -nostdlib -march=rv32im_zicsr -c "$input" -o "$obj"
     if [ $? -ne 0 ]; then
         echo "GCC编译失败。"
         rm -rf "$tmpdir"
@@ -115,7 +115,7 @@ if [ "$ext" = "c" ]; then
     riscv32-unknown-elf-gcc -nostdlib -march=rv32i_zicsr -T $LINKER_SCRIPT \
         -Wl,--gc-sections "$startup_obj" "$PASOC_OBJ" "$obj" -o "$elf"
 else
-    riscv32-unknown-elf-gcc -nostdlib -march=rv32i_zicsr -T $LINKER_SCRIPT \
+    riscv32-unknown-elf-gcc -nostdlib -march=rv32im_zicsr -T $LINKER_SCRIPT \
         -Wl,--gc-sections "$obj" -o "$elf"
 fi
 if [ $? -ne 0 ]; then

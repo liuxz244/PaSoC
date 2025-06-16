@@ -10,7 +10,7 @@ import Consts._
 class ITCM(val depth: Int, val initHex: String) extends Module {
     val io = IO(new Bundle {
         val bus = new IBusPortIO()
-        val rx  = Input(Bool())  // UART RX引脚
+        //val rx  = Input(Bool())  // UART RX引脚
     })
 
     // 1. 创建存储器
@@ -26,7 +26,7 @@ class ITCM(val depth: Int, val initHex: String) extends Module {
     iaddrb := Mux(reset.asBool, 0.U, io.bus.addrb(addrWidth + 1, 2))
     io.bus.inst := mem(iaddrb)
 
-    
+    /*
     // ------------------------------
     // 4. UART 接收器实现
     // ------------------------------
@@ -146,7 +146,7 @@ class ITCM(val depth: Int, val initHex: String) extends Module {
         writeAddr := writeAddr + 1.U   // 写地址递增
         byteCount := 0.U               // 重置计数
     }
-    
+    */
 }
 
 
