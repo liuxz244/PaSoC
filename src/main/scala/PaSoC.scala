@@ -22,7 +22,7 @@ class PaSoC(initHex: String) extends Module {
         val exit    = Output(Bool())
         val rx_flag = Input( Bool())
         val rx_data = Input(UInt(8.W))
-        val sdram   = new SdramPortIO()
+        val sdram   = new Sdr32bit8mIO
     })
 
     val core  = Module(new PasoRV())
@@ -33,7 +33,7 @@ class PaSoC(initHex: String) extends Module {
     val uart  = Module(new UartCtrl())
     val plic  = Module(new PLIC())
     val clint = Module(new CLINT())
-    val sdram = Module(new SdramCtrl)
+    val sdram = Module(new SdrEmbed8M)
 
     // 添加可配置外设数量的总线选择器
     val dbus = Module(new DBusMux(7))

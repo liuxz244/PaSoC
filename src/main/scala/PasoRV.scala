@@ -276,9 +276,14 @@ class PasoRV extends Module {
     val exe_alu_mulhsu = (exe_reg_op1_data.asSInt * exe_reg_op2_data)(63, 32)
     val exe_alu_mulhu  = (exe_reg_op1_data * exe_reg_op2_data)(63, 32)
 
+    val exe_alu_add   = (exe_reg_op1_data + exe_reg_op2_data)
+    val exe_alu_equal = (exe_reg_op1_data === exe_reg_op2_data)
+    val exe_alu_slt   = (exe_reg_op1_data.asSInt < exe_reg_op2_data.asSInt).asUInt
+    val exe_alu_sltu  = (exe_reg_op1_data < exe_reg_op2_data).asUInt
+
     // ALU运算
     exe_alu_out := MuxCase(0.U(WORD_LEN.W), Seq(
-        (exe_reg_alu_fnc === ALU_ADD)    -> (exe_reg_op1_data + exe_reg_op2_data),
+        (exe_reg_alu_fnc === ALU_ADD)    -> exe_alu_add,
         (exe_reg_alu_fnc === ALU_SUB)    -> (exe_reg_op1_data - exe_reg_op2_data),
         (exe_reg_alu_fnc === ALU_AND)    -> (exe_reg_op1_data & exe_reg_op2_data),
         (exe_reg_alu_fnc === ALU_OR)     -> (exe_reg_op1_data | exe_reg_op2_data),
@@ -286,9 +291,9 @@ class PasoRV extends Module {
         (exe_reg_alu_fnc === ALU_SLL)    -> (exe_reg_op1_data << exe_reg_op2_data(4, 0))(31, 0),
         (exe_reg_alu_fnc === ALU_SRL)    -> (exe_reg_op1_data >> exe_reg_op2_data(4, 0)).asUInt,
         (exe_reg_alu_fnc === ALU_SRA)    -> (exe_reg_op1_data.asSInt >> exe_reg_op2_data(4, 0)).asUInt,
-        (exe_reg_alu_fnc === ALU_SLT)    -> (exe_reg_op1_data.asSInt < exe_reg_op2_data.asSInt).asUInt,
-        (exe_reg_alu_fnc === ALU_SLTU)   -> (exe_reg_op1_data < exe_reg_op2_data).asUInt,
-        (exe_reg_alu_fnc === ALU_JALR)   -> ((exe_reg_op1_data + exe_reg_op2_data) & ~1.U(WORD_LEN.W)),
+        (exe_reg_alu_fnc === ALU_SLT)    -> exe_alu_slt,
+        (exe_reg_alu_fnc === ALU_SLTU)   -> exe_alu_sltu,
+        (exe_reg_alu_fnc === ALU_JALR)   -> (exe_alu_add & ~1.U(WORD_LEN.W)),
         (exe_reg_alu_fnc === ALU_COPY1)  -> exe_reg_op1_data,
         (exe_reg_alu_fnc === ALU_MUL)    -> exe_alu_muls(31, 0),
         (exe_reg_alu_fnc === ALU_MULH)   -> exe_alu_muls(63, 32),
@@ -298,12 +303,12 @@ class PasoRV extends Module {
 
     // 分支判断及目的地址生成
     exe_br_flg := MuxCase(false.B, Seq(
-        (exe_reg_alu_fnc === BR_BEQ)  ->  (exe_reg_op1_data === exe_reg_op2_data),
-        (exe_reg_alu_fnc === BR_BNE)  -> !(exe_reg_op1_data === exe_reg_op2_data),
-        (exe_reg_alu_fnc === BR_BLT)  ->  (exe_reg_op1_data.asSInt < exe_reg_op2_data.asSInt),
-        (exe_reg_alu_fnc === BR_BGE)  -> !(exe_reg_op1_data.asSInt < exe_reg_op2_data.asSInt),
-        (exe_reg_alu_fnc === BR_BLTU) ->  (exe_reg_op1_data < exe_reg_op2_data),
-        (exe_reg_alu_fnc === BR_BGEU) -> !(exe_reg_op1_data < exe_reg_op2_data)
+        (exe_reg_alu_fnc === BR_BEQ)  ->  exe_alu_equal,
+        (exe_reg_alu_fnc === BR_BNE)  -> !exe_alu_equal,
+        (exe_reg_alu_fnc === BR_BLT)  ->  exe_alu_slt,
+        (exe_reg_alu_fnc === BR_BGE)  -> !exe_alu_slt,
+        (exe_reg_alu_fnc === BR_BLTU) ->  exe_alu_sltu,
+        (exe_reg_alu_fnc === BR_BGEU) -> !exe_alu_sltu
     ))
     exe_br_tag := exe_reg_pc + exe_reg_imm_b_sext
 

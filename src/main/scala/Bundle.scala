@@ -34,7 +34,7 @@ class OLEDLineIO extends Bundle {
     val str_line3 = Output(UInt(128.W))
 }
 
-class SdramPortIO extends Bundle {
+class Sdr32bit8mIO extends Bundle {
   val o_valid  = Output(Bool())      // 请求数据操作
   val i_ready  = Input(Bool())       // 外设响应信号
   val o_addr   = Output(UInt(32.W))  // 地址
