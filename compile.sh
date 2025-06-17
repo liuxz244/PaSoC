@@ -60,7 +60,7 @@ if [ "$ext" = "c" ]; then
         rm -rf "$tmpdir"
         exit 10
     fi
-    riscv32-unknown-elf-gcc -nostdlib -march=rv32i_zicsr -c "$startup_s" -o "$startup_obj"
+    riscv32-unknown-elf-gcc -nostdlib -march=rv32im_zicsr -c "$startup_s" -o "$startup_obj"
     if [ $? -ne 0 ]; then
         echo "startup.s编译失败"
         rm -rf "$tmpdir"
@@ -72,7 +72,7 @@ if [ "$ext" = "c" ]; then
         rm -rf "$tmpdir"
         exit 11
     fi
-    riscv32-unknown-elf-gcc -nostdlib -march=rv32i_zicsr -ffunction-sections -fdata-sections \
+    riscv32-unknown-elf-gcc -nostdlib -march=rv32im_zicsr -ffunction-sections -fdata-sections \
         $freq_define -c "$PASOC_C" -o "$PASOC_OBJ"
     if [ $? -ne 0 ]; then
         echo "PaSoC.c编译失败"
@@ -80,14 +80,14 @@ if [ "$ext" = "c" ]; then
         exit 12
     fi
 
-    riscv32-unknown-elf-gcc -S -nostdlib -march=rv32i_zicsr $freq_define "$input" -o "$output_asm"
+    riscv32-unknown-elf-gcc -S -nostdlib -march=rv32im_zicsr $freq_define "$input" -o "$output_asm"
     if [ $? -ne 0 ]; then
         echo "C编译生成汇编失败"
         rm -rf "$tmpdir"
         exit 2
     fi
 
-    riscv32-unknown-elf-gcc -c -nostdlib -march=rv32i_zicsr $freq_define "$output_asm" -o "$obj"
+    riscv32-unknown-elf-gcc -c -nostdlib -march=rv32im_zicsr $freq_define "$output_asm" -o "$obj"
     if [ $? -ne 0 ]; then
         echo "汇编转目标文件失败"
         rm -rf "$tmpdir"
@@ -112,7 +112,7 @@ fi
 # === 2. 链接阶段（关键：使用自定义link.ld） ===
 
 if [ "$ext" = "c" ]; then
-    riscv32-unknown-elf-gcc -nostdlib -march=rv32i_zicsr -T $LINKER_SCRIPT \
+    riscv32-unknown-elf-gcc -nostdlib -march=rv32im_zicsr -T $LINKER_SCRIPT \
         -Wl,--gc-sections "$startup_obj" "$PASOC_OBJ" "$obj" -o "$elf"
 else
     riscv32-unknown-elf-gcc -nostdlib -march=rv32im_zicsr -T $LINKER_SCRIPT \

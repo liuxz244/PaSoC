@@ -100,6 +100,9 @@ class PasoRV extends Module {
 
     val stall_hazard = Wire(Bool())  // 出现流水线数据冒险, 需要暂停流水线
     val stall_bus    = Wire(Bool())  // 从机未准备好响应, 需要暂停流水线
+    val stall_div    = Wire(Bool())  // 除法器正在运算
+    val stall_mul    = Wire(Bool())
+    val stall_alu    = Wire(Bool())
     val stall_flg    = Wire(Bool())
     val exe_br_flg   = Wire(Bool())
     val exe_br_tag   = Wire(UInt(WORD_LEN.W))
@@ -227,7 +230,11 @@ class PasoRV extends Module {
             MUL   -> List(ALU_MUL   , OP1_RS1, OP2_RS2, MEN_X, REN_S, WB_ALU, LS_X , CSR_X),
             MULH  -> List(ALU_MULH  , OP1_RS1, OP2_RS2, MEN_X, REN_S, WB_ALU, LS_X , CSR_X),
             MULHSU-> List(ALU_MULHSU, OP1_RS1, OP2_RS2, MEN_X, REN_S, WB_ALU, LS_X , CSR_X),
-            MULHU -> List(ALU_MULHU , OP1_RS1, OP2_RS2, MEN_X, REN_S, WB_ALU, LS_X , CSR_X)
+            MULHU -> List(ALU_MULHU , OP1_RS1, OP2_RS2, MEN_X, REN_S, WB_ALU, LS_X , CSR_X),
+            DIV   -> List(ALU_DIV   , OP1_RS1, OP2_RS2, MEN_X, REN_S, WB_ALU, LS_X , CSR_X),
+            DIVU  -> List(ALU_DIVU  , OP1_RS1, OP2_RS2, MEN_X, REN_S, WB_ALU, LS_X , CSR_X),
+            REM   -> List(ALU_REM   , OP1_RS1, OP2_RS2, MEN_X, REN_S, WB_ALU, LS_X , CSR_X),
+            REMU  -> List(ALU_REMU  , OP1_RS1, OP2_RS2, MEN_X, REN_S, WB_ALU, LS_X , CSR_X),
             )
         )
     val id_alu_fnc :: id_op1_sel :: id_op2_sel :: id_mem_wen :: id_rf_wen :: id_wb_sel :: id_mem_width :: id_csr_cmd :: Nil = csignals
@@ -250,7 +257,7 @@ class PasoRV extends Module {
 
 
     // ID/EX register
-    when(!stall_bus) {
+    when(!(stall_bus || stall_alu)) {
         exe_reg_pc := Mux(pc_redirect, exe_reg_pc, id_reg_pc)
         exe_reg_inst       := id_inst
         exe_reg_op1_data   := id_op1_data
@@ -270,11 +277,23 @@ class PasoRV extends Module {
 
     //**********************************
     // Execute (EX) Stage
-
+    
     // 简易乘法运算，频率很差
     val exe_alu_muls   = (exe_reg_op1_data.asSInt * exe_reg_op2_data.asSInt).asUInt
     val exe_alu_mulhsu = (exe_reg_op1_data.asSInt * exe_reg_op2_data)(63, 32)
     val exe_alu_mulhu  = (exe_reg_op1_data * exe_reg_op2_data)(63, 32)
+    /*
+    val multiplier = Module(new DivModule())
+    multiplier.io.op1_data := exe_reg_op1_data; multiplier.io.op2_data := exe_reg_op2_data
+    multiplier.io.alu_fnc  := exe_reg_alu_fnc;  stall_mul := multiplier.io.stall
+    val exe_alu_mul = multiplier.io.mul_out
+    */
+    val divider = Module(new DivModule())
+    divider.io.op1_data := exe_reg_op1_data; divider.io.op2_data := exe_reg_op2_data
+    divider.io.alu_fnc  := exe_reg_alu_fnc;  stall_div := divider.io.stall
+    val exe_alu_div = divider.io.div_out
+
+    stall_alu := stall_div // || stall_mul
 
     val exe_alu_add   = (exe_reg_op1_data + exe_reg_op2_data)
     val exe_alu_equal = (exe_reg_op1_data === exe_reg_op2_data)
@@ -295,10 +314,14 @@ class PasoRV extends Module {
         (exe_reg_alu_fnc === ALU_SLTU)   -> exe_alu_sltu,
         (exe_reg_alu_fnc === ALU_JALR)   -> (exe_alu_add & ~1.U(WORD_LEN.W)),
         (exe_reg_alu_fnc === ALU_COPY1)  -> exe_reg_op1_data,
-        (exe_reg_alu_fnc === ALU_MUL)    -> exe_alu_muls(31, 0),
-        (exe_reg_alu_fnc === ALU_MULH)   -> exe_alu_muls(63, 32),
-        (exe_reg_alu_fnc === ALU_MULHSU) -> exe_alu_mulhsu,
-        (exe_reg_alu_fnc === ALU_MULHU)  -> exe_alu_mulhu
+        (exe_reg_alu_fnc === ALU_MUL)    -> exe_alu_mul,
+        (exe_reg_alu_fnc === ALU_MULH)   -> exe_alu_mul,
+        (exe_reg_alu_fnc === ALU_MULHSU) -> exe_alu_mul,
+        (exe_reg_alu_fnc === ALU_MULHU)  -> exe_alu_mul,
+        (exe_reg_alu_fnc === ALU_DIVU)   -> exe_alu_div,
+        (exe_reg_alu_fnc === ALU_REMU)   -> exe_alu_div,
+        (exe_reg_alu_fnc === ALU_DIV)    -> exe_alu_div,
+        (exe_reg_alu_fnc === ALU_REM)    -> exe_alu_div
     ))
 
     // 分支判断及目的地址生成
@@ -319,7 +342,7 @@ class PasoRV extends Module {
     io.dbus.addrb := exe_alu_out
 
     // EX/MEM register
-    when (!stall_bus) {
+    when (!(stall_bus || stall_alu)) {
         // 用mux选择是否冲刷流水线
         mem_reg_pc        := Mux(ext_irq,  0.U,    exe_reg_pc       )
         mem_reg_inst      := Mux(ext_irq,  BUBBLE, exe_reg_inst     )
@@ -341,7 +364,7 @@ class PasoRV extends Module {
 
     val mem_access = (mem_reg_wb_sel === WB_MEM || mem_reg_mem_wen === MEN_S)
     stall_bus := mem_access && !io.dbus.ready  // 若为访存操作且DBus尚未返回响应, 则产生总线等待
-    stall_flg := stall_hazard || stall_bus    // 全局暂停信号由数据冒险及访存等待联合产生
+    stall_flg := stall_hazard || stall_bus || stall_alu  // 全局暂停信号联合产生
 
     val isH  = (mem_reg_mem_width === LS_H || mem_reg_mem_width === LS_HU)
     val isB  = (mem_reg_mem_width === LS_B || mem_reg_mem_width === LS_BU)
@@ -422,7 +445,7 @@ class PasoRV extends Module {
 
 
     // MEM/WB regsiter
-    when(!stall_bus) {
+    when(!(stall_bus || stall_alu)) {
         wb_reg_pc      := mem_reg_pc
         wb_reg_inst    := mem_reg_inst
         wb_reg_wb_addr := mem_reg_wb_addr
@@ -439,8 +462,9 @@ class PasoRV extends Module {
     // 当其中任一为真时，即表示处于跳转后的第三或第四周期
     val wbForceLow = exe_jmp_flg_d3 || exe_jmp_flg_d4
     // 确实要写回时拉高 wb_have_inst
-    val wb_have_inst = Mux(wbForceLow, false.B, ((wb_reg_rf_wen === REN_S) && (wb_reg_wb_addr =/= 0.U)))
-
+    val wb_have_inst = Mux(wbForceLow, false.B, 
+        ((wb_reg_rf_wen === REN_S) && (wb_reg_wb_addr =/= 0.U) && !(stall_bus || stall_alu))
+    )
     when(wb_have_inst) {
         regfile(wb_reg_wb_addr) := wb_reg_wb_data
     }

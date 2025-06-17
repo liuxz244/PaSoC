@@ -89,3 +89,62 @@ class UartCtrlTest extends AnyFlatSpec with ChiselScalatestTester {
     }
 }
 
+
+class DivModuleTest extends AnyFlatSpec with ChiselScalatestTester {
+    behavior of "DivModule"
+
+    it should "perform correct DIVU and REMU" in {
+        test(new DivModule).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
+            // 测试用例 (全指定类型为Int)
+            val cases = Seq(
+                (100L, 3L),
+                (0xFFFFFFFFL, 5L),
+                (12345L, 1L),
+                (12345L, 12345L),
+                (12345L, 0L),
+                (0L, 12345L),
+                (0L, 0L)
+            )
+            for ((src1, src2) <- cases) {
+                // DIVU
+                c.io.op1_data.poke(src1.U)
+                c.io.op2_data.poke(src2.U)
+                c.io.alu_fnc.poke(ALU_DIVU)
+                c.clock.step(1)
+                var cycles = 0
+                while (c.io.stall.peek().litToBoolean && cycles < 40) {
+                    c.clock.step(1)
+                    cycles += 1
+                }
+                val ref =
+                  if (src2 == 0) BigInt("ffffffff", 16)
+                  else BigInt(src1 & 0xFFFFFFFFL) / BigInt(src2 & 0xFFFFFFFFL)
+                c.io.div_out.expect(ref.U, s"DIVU fail for $src1/$src2")
+
+                // 闲状态
+                c.clock.step(1)
+                c.io.alu_fnc.poke(0xF.U)
+                c.clock.step(1)
+
+                // REMU
+                c.io.op1_data.poke(src1.U)
+                c.io.op2_data.poke(src2.U)
+                c.io.alu_fnc.poke(ALU_REMU)
+                c.clock.step(1)
+                cycles = 0
+                while (c.io.stall.peek().litToBoolean && cycles < 40) {
+                    c.clock.step(1)
+                    cycles += 1
+                }
+                val rem =
+                  if (src2 == 0) BigInt(src1 & 0xFFFFFFFFL)
+                  else BigInt(src1 & 0xFFFFFFFFL) % BigInt(src2 & 0xFFFFFFFFL)
+                c.io.div_out.expect(rem.U, s"REMU fail for $src1%$src2")
+
+                c.clock.step(1)
+                c.io.alu_fnc.poke(0xF.U)
+                c.clock.step(1)
+            }
+        }
+    }
+}
