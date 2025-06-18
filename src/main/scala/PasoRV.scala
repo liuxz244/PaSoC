@@ -278,22 +278,19 @@ class PasoRV extends Module {
     //**********************************
     // Execute (EX) Stage
     
-    // 简易乘法运算，频率很差
-    val exe_alu_muls   = (exe_reg_op1_data.asSInt * exe_reg_op2_data.asSInt).asUInt
-    val exe_alu_mulhsu = (exe_reg_op1_data.asSInt * exe_reg_op2_data)(63, 32)
-    val exe_alu_mulhu  = (exe_reg_op1_data * exe_reg_op2_data)(63, 32)
-    /*
-    val multiplier = Module(new DivModule())
+    val multiplier = Module(new MulModule())
     multiplier.io.op1_data := exe_reg_op1_data; multiplier.io.op2_data := exe_reg_op2_data
     multiplier.io.alu_fnc  := exe_reg_alu_fnc;  stall_mul := multiplier.io.stall
+    val is_mul = (exe_reg_alu_fnc === ALU_MUL || exe_reg_alu_fnc === ALU_MULH || exe_reg_alu_fnc === ALU_MULHSU || exe_reg_alu_fnc === ALU_MULHU);  multiplier.io.isMul := is_mul
     val exe_alu_mul = multiplier.io.mul_out
-    */
+    
     val divider = Module(new DivModule())
     divider.io.op1_data := exe_reg_op1_data; divider.io.op2_data := exe_reg_op2_data
     divider.io.alu_fnc  := exe_reg_alu_fnc;  stall_div := divider.io.stall
+    val is_div = (exe_reg_alu_fnc === ALU_DIVU || exe_reg_alu_fnc === ALU_REMU || exe_reg_alu_fnc === ALU_DIV || exe_reg_alu_fnc === ALU_REM);   divider.io.isDiv := is_div
     val exe_alu_div = divider.io.div_out
 
-    stall_alu := stall_div // || stall_mul
+    stall_alu := stall_div || stall_mul
 
     val exe_alu_add   = (exe_reg_op1_data + exe_reg_op2_data)
     val exe_alu_equal = (exe_reg_op1_data === exe_reg_op2_data)
@@ -314,14 +311,8 @@ class PasoRV extends Module {
         (exe_reg_alu_fnc === ALU_SLTU)   -> exe_alu_sltu,
         (exe_reg_alu_fnc === ALU_JALR)   -> (exe_alu_add & ~1.U(WORD_LEN.W)),
         (exe_reg_alu_fnc === ALU_COPY1)  -> exe_reg_op1_data,
-        (exe_reg_alu_fnc === ALU_MUL)    -> exe_alu_mul,
-        (exe_reg_alu_fnc === ALU_MULH)   -> exe_alu_mul,
-        (exe_reg_alu_fnc === ALU_MULHSU) -> exe_alu_mul,
-        (exe_reg_alu_fnc === ALU_MULHU)  -> exe_alu_mul,
-        (exe_reg_alu_fnc === ALU_DIVU)   -> exe_alu_div,
-        (exe_reg_alu_fnc === ALU_REMU)   -> exe_alu_div,
-        (exe_reg_alu_fnc === ALU_DIV)    -> exe_alu_div,
-        (exe_reg_alu_fnc === ALU_REM)    -> exe_alu_div
+        (is_mul) -> exe_alu_mul,
+        (is_div) -> exe_alu_div
     ))
 
     // 分支判断及目的地址生成
@@ -336,7 +327,6 @@ class PasoRV extends Module {
     exe_br_tag := exe_reg_pc + exe_reg_imm_b_sext
 
     exe_jmp_flg := (exe_reg_wb_sel === WB_PC)
-
 
     // 由于BRAM的读取有一周期延迟，需要提前发出地址
     io.dbus.addrb := exe_alu_out

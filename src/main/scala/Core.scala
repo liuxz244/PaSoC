@@ -10,6 +10,7 @@ class DivModule extends Module {
         val op1_data = Input(UInt(WORD_LEN.W))
         val op2_data = Input(UInt(WORD_LEN.W))
         val alu_fnc  = Input(UInt(ALU_FNC_LEN.W))
+        val isDiv    = Input(Bool())
         val div_out  = Output(UInt(WORD_LEN.W))
         val stall    = Output(Bool())
     })
@@ -41,7 +42,7 @@ class DivModule extends Module {
     val remainder_neg = RegInit(false.B)
 
     // 设置launch条件，包含所有4种操作
-    val launch = (state === sIdle) && (io.alu_fnc === ALU_DIVU || io.alu_fnc === ALU_REMU || io.alu_fnc === ALU_DIV || io.alu_fnc === ALU_REM)
+    val launch = (state === sIdle) && io.isDiv
     io.stall  := (state === sCalc) || launch
     io.div_out := 0.U
 
@@ -123,10 +124,46 @@ class MulModule extends Module {
         val op1_data = Input(UInt(WORD_LEN.W))
         val op2_data = Input(UInt(WORD_LEN.W))
         val alu_fnc  = Input(UInt(ALU_FNC_LEN.W))
+        val isMul    = Input(Bool())
         val mul_out  = Output(UInt(WORD_LEN.W))
         val stall    = Output(Bool())
     })
 
+    // 状态指示
+    val idle :: busy :: Nil = Enum(2)
+    val state = RegInit(idle)
 
+    // 把第一阶段所有乘法结果算好收集打拍
+    val muls_reg   = Reg(UInt(64.W))
+    val mulhsu_reg = Reg(UInt(32.W))
+    val mulhu_reg  = Reg(UInt(32.W))
+    val alu_fnc_reg = Reg(UInt(ALU_FNC_LEN.W))
 
+    io.stall   := false.B // 默认
+    io.mul_out := 0.U // 默认
+
+    switch(state) {
+        is(idle) {
+            when(io.isMul) {
+                // 第一拍: 计算结果
+                muls_reg   := (io.op1_data.asSInt * io.op2_data.asSInt).asUInt
+                mulhsu_reg := (io.op1_data.asSInt * io.op2_data).asUInt(63,32)
+                mulhu_reg  := (io.op1_data * io.op2_data)(63,32)
+                alu_fnc_reg := io.alu_fnc
+
+                io.stall := true.B
+                state := busy
+            }
+        }
+        is(busy) {
+            // 第二拍：根据锁存的 alu_fnc 选择输出
+            io.mul_out := MuxCase(0.U(WORD_LEN.W), Seq(
+                (alu_fnc_reg === ALU_MUL)    -> muls_reg(31,0), 
+                (alu_fnc_reg === ALU_MULH)   -> muls_reg(63,32), 
+                (alu_fnc_reg === ALU_MULHSU) -> mulhsu_reg, 
+                (alu_fnc_reg === ALU_MULHU)  -> mulhu_reg, 
+            ))
+            state := idle // 完成输出，下个周期可接收新输入
+        }
+    }
 }
