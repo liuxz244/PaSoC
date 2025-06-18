@@ -334,18 +334,18 @@ class PasoRV extends Module {
     // EX/MEM register
     when (!(stall_bus || stall_alu)) {
         // 用mux选择是否冲刷流水线
-        mem_reg_pc        := Mux(ext_irq,  0.U,    exe_reg_pc       )
-        mem_reg_inst      := Mux(ext_irq,  BUBBLE, exe_reg_inst     )
-        mem_reg_wb_addr   := Mux(ext_irq,  0.U,    exe_reg_wb_addr  )
-        mem_reg_alu_out   := Mux(ext_irq,  0.U,    exe_alu_out      )
-        mem_reg_rf_wen    := Mux(ext_irq,  REN_X,  exe_reg_rf_wen   )
-        mem_reg_wb_sel    := Mux(ext_irq,  WB_X,   exe_reg_wb_sel   )
-        mem_reg_csr_addr  := Mux(ext_irq,  0.U,    exe_reg_csr_addr )
-        mem_reg_csr_cmd   := Mux(ext_irq,  CSR_X,  exe_reg_csr_cmd  )
-        mem_reg_mem_wen   := Mux(ext_irq,  MEN_X,  exe_reg_mem_wen  )
-        mem_reg_op1_data  := Mux(ext_irq,  0.U,    exe_reg_op1_data )
-        mem_reg_rs2_data  := Mux(ext_irq,  0.U,    exe_reg_rs2_data )
-        mem_reg_mem_width := Mux(ext_irq,  LS_X,   exe_reg_mem_width)
+        mem_reg_pc        := Mux(irq_pending,  0.U,    exe_reg_pc       )
+        mem_reg_inst      := Mux(irq_pending,  BUBBLE, exe_reg_inst     )
+        mem_reg_wb_addr   := Mux(irq_pending,  0.U,    exe_reg_wb_addr  )
+        mem_reg_alu_out   := Mux(irq_pending,  0.U,    exe_alu_out      )
+        mem_reg_rf_wen    := Mux(irq_pending,  REN_X,  exe_reg_rf_wen   )
+        mem_reg_wb_sel    := Mux(irq_pending,  WB_X,   exe_reg_wb_sel   )
+        mem_reg_csr_addr  := Mux(irq_pending,  0.U,    exe_reg_csr_addr )
+        mem_reg_csr_cmd   := Mux(irq_pending,  CSR_X,  exe_reg_csr_cmd  )
+        mem_reg_mem_wen   := Mux(irq_pending,  MEN_X,  exe_reg_mem_wen  )
+        mem_reg_op1_data  := Mux(irq_pending,  0.U,    exe_reg_op1_data )
+        mem_reg_rs2_data  := Mux(irq_pending,  0.U,    exe_reg_rs2_data )
+        mem_reg_mem_width := Mux(irq_pending,  LS_X,   exe_reg_mem_width)
     }
     
 
