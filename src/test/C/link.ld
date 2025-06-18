@@ -3,8 +3,8 @@ ENTRY(_start)
 MEMORY
 {
     INSTR (rx) : ORIGIN = 0x00000000, LENGTH = 16K  /* 指令空间 */
-    DATA  (rw) : ORIGIN = 0x10000000, LENGTH = 16K  /* 数据空间 */
-    /*SDRAM (rw) : ORIGIN = 0x70000000, LENGTH = 32M    SDRAM区 */
+    DATA  (rw) : ORIGIN = 0x10000000, LENGTH = 8K   /* 数据空间 */
+    SDRAM (rw) : ORIGIN = 0x40000000, LENGTH = 8M   /* SDRAM 区 */
 }
 
 SECTIONS

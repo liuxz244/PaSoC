@@ -1,6 +1,8 @@
 .globl _start
 _start:
     la sp, _stack_top  # 或 la sp, _sp
+    li t0, 0x30000000  # 串口发送地址
+    sb x0, 0(t0)       # 发送一个空字节
     call main   # 进入main函数
     li t0, 20
 1:  # 等待一会

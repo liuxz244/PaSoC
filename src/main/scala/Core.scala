@@ -167,3 +167,37 @@ class MulModule extends Module {
         }
     }
 }
+
+
+// 1位分支历史表
+class BHT(val tableSize: Int = 256) extends Module {
+    val idxWidth = log2Ceil(tableSize)
+    val io = IO(new Bundle {
+        // 查询
+        val query          = Input(Bool())
+        val query_pc       = Input(UInt(32.W))
+        val predict_taken  = Output(Bool())
+        //val predict_target = Output(UInt(32.W))
+        // 更新
+        val update        = Input(Bool())
+        val update_pc     = Input(UInt(32.W))
+        val update_taken  = Input(Bool())
+        //val update_target = Input(UInt(32.W))
+    })
+
+    // 1位宽的BHT表
+    val bhtTable = RegInit(VecInit(Seq.fill(tableSize)(false.B)))
+    // 目标地址表
+    //val targetTable = RegInit(VecInit(Seq.fill(tableSize)(0.U(32.W))))
+
+    val query_idx = io.query_pc(idxWidth+1, 2)
+    io.predict_taken := Mux(io.query, bhtTable(query_idx), false.B)
+    //io.predict_target := Mux(io.query, targetTable(query_idx), 0.U)
+
+    when(io.update) {
+        val update_idx = io.update_pc(idxWidth+1, 2)
+        bhtTable(update_idx) := io.update_taken
+        //targetTable(update_idx) := io.update_target
+    }
+}
+

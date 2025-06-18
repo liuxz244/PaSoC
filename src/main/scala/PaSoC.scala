@@ -27,7 +27,7 @@ class PaSoC(initHex: String) extends Module {
 
     val core  = Module(new PasoRV())
     val imem  = Module(new ITCM(4096, initHex))
-    val dmem  = Module(new DTCM(4096, initHex))
+    val dmem  = Module(new DTCM(2048, initHex))
     val gpio  = Module(new GPIOCtrl())
     val pwm   = Module(new PWMCtrl())
     val uart  = Module(new UartCtrl())

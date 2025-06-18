@@ -32,6 +32,7 @@ class PasoRV extends Module {
     // IF/ID State
     val id_reg_pc          = RegInit(0.U(WORD_LEN.W))
     val id_reg_inst        = RegInit(0.U(WORD_LEN.W))
+    val id_reg_pred_br     = RegInit(false.B)
 
     // ID/EX State
     val exe_reg_pc         = RegInit(0.U(WORD_LEN.W))
@@ -48,6 +49,7 @@ class PasoRV extends Module {
     val exe_reg_csr_cmd    = RegInit(0.U(CSR_LEN.W))
     val exe_reg_imm_b_sext = RegInit(0.U(WORD_LEN.W))
     val exe_reg_mem_width  = RegInit(0.U(LS_LEN.W))
+    val exe_reg_pred_br    = RegInit(false.B)
 
     // EX/MEM State
     val mem_reg_pc         = RegInit(0.U(WORD_LEN.W))
@@ -97,6 +99,8 @@ class PasoRV extends Module {
     val if_reg_pc = RegInit(START_ADDR)
     val if_pc_plus4 = if_reg_pc + 4.U(WORD_LEN.W)
     val if_inst = io.ibus.inst
+    val pred_negfail = Wire(Bool())  // 预测不分支，但实际要分支
+    val pred_posfail = Wire(Bool())  // 预测要分支，但实际不分支
 
     val stall_hazard = Wire(Bool())  // 出现流水线数据冒险, 需要暂停流水线
     val stall_bus    = Wire(Bool())  // 从机未准备好响应, 需要暂停流水线
@@ -109,15 +113,26 @@ class PasoRV extends Module {
     val exe_jmp_flg  = Wire(Bool())
     val exe_alu_out  = Wire(UInt(WORD_LEN.W))
 
-    val pc_redirect  = (irq_pending || exe_br_flg || exe_jmp_flg)
-    val if_pc_next = MuxCase(if_pc_plus4, Seq(
+    val bht = Module(new BHT(256));  // 分支历史表，仅当是分支指令时才能查询，防止普通指令误触
+    bht.io.query_pc := if_reg_pc;   val if_pred_br  = bht.io.predict_taken;  
+    val if_is_branch = (if_inst(6,0) === "b1100011".U);  bht.io.query := if_is_branch
+    // 计算分支预测的目标地址
+    val if_imm_b = Cat(if_inst(31), if_inst(7), if_inst(30, 25), if_inst(11, 8))
+    val if_imm_b_sext = Cat(Fill(19, if_imm_b(11)), if_imm_b, 0.U(1.W))
+    val pred_tag = if_reg_pc + if_imm_b_sext
+
+    val pc_redirect = (irq_pending || exe_jmp_flg || pred_negfail || pred_posfail)
+    val if_pc_next  = MuxCase(if_pc_plus4, Seq(
         // 优先中断＞分支＞跳转＞异常＞流水线暂停
-        irq_pending -> mtvec,  // mtvec应设置为中断处理函数的入口
-        exe_br_flg  -> exe_br_tag,
-        exe_jmp_flg -> exe_alu_out,
-        is_mret     -> mepc,  // 中断返回
-        (if_inst === ECALL) -> mtvec,  // ECALL进异常处理向量地址
-        stall_flg   -> if_reg_pc,  // 暂停时保持原PC
+        irq_pending  -> mtvec,  // mtvec应设置为中断处理函数的入口
+        //exe_br_flg   -> exe_br_tag,
+        pred_negfail -> exe_br_tag,
+        pred_posfail -> (exe_reg_pc + 4.U),
+        exe_jmp_flg  -> exe_alu_out,
+        is_mret      -> mepc,   // 中断返回
+        (if_inst === ECALL) -> 1998.U,//mtvec,  // ECALL进异常处理向量地址
+        stall_flg    -> if_reg_pc,  // 暂停时保持原PC
+        if_pred_br   -> pred_tag,   // 预测出的目标地址
     ))
     if_reg_pc := if_pc_next
     io.ibus.addrb := if_pc_next  // 因为BRAM有延迟，提前发出下一周期的地址
@@ -130,7 +145,7 @@ class PasoRV extends Module {
         pc_redirect -> BUBBLE,
         stall_flg -> id_reg_inst, 
     ))
-
+    id_reg_pred_br := Mux(stall_flg, id_reg_pred_br, if_pred_br)
 
     //**********************************
     // Instruction Decode (ID) Stage
@@ -258,7 +273,7 @@ class PasoRV extends Module {
 
     // ID/EX register
     when(!(stall_bus || stall_alu)) {
-        exe_reg_pc := Mux(pc_redirect, exe_reg_pc, id_reg_pc)
+        exe_reg_pc      := Mux(pc_redirect, exe_reg_pc, id_reg_pc)
         exe_reg_inst       := id_inst
         exe_reg_op1_data   := id_op1_data
         exe_reg_op2_data   := id_op2_data
@@ -272,6 +287,7 @@ class PasoRV extends Module {
         exe_reg_imm_b_sext := id_imm_b_sext
         exe_reg_mem_wen    := id_mem_wen
         exe_reg_mem_width  := id_mem_width
+        exe_reg_pred_br := Mux(stall_flg, exe_reg_pred_br, id_reg_pred_br)
     }
 
 
@@ -315,6 +331,7 @@ class PasoRV extends Module {
         (is_div) -> exe_alu_div
     ))
 
+    val exe_is_branch = (exe_reg_inst(6,0) === "b1100011".U)  // 分支型指令
     // 分支判断及目的地址生成
     exe_br_flg := MuxCase(false.B, Seq(
         (exe_reg_alu_fnc === BR_BEQ)  ->  exe_alu_equal,
@@ -324,9 +341,14 @@ class PasoRV extends Module {
         (exe_reg_alu_fnc === BR_BLTU) ->  exe_alu_sltu,
         (exe_reg_alu_fnc === BR_BGEU) -> !exe_alu_sltu
     ))
+    pred_negfail := exe_br_flg && (exe_br_tag =/= id_reg_pc)
+    pred_posfail := exe_reg_pred_br && !exe_br_flg && exe_is_branch
     exe_br_tag := exe_reg_pc + exe_reg_imm_b_sext
 
     exe_jmp_flg := (exe_reg_wb_sel === WB_PC)
+
+    bht.io.update := exe_is_branch && !stall_flg  // 根据实际情况更新分支历史
+    bht.io.update_pc := exe_reg_pc;  bht.io.update_taken := exe_br_flg
 
     // 由于BRAM的读取有一周期延迟，需要提前发出地址
     io.dbus.addrb := exe_alu_out
