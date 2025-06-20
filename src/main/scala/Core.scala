@@ -169,35 +169,38 @@ class MulModule extends Module {
 }
 
 
-// 1位分支历史表
-class BHT(val tableSize: Int = 256) extends Module {
+// 2位分支历史表
+    class BHT(val tableSize: Int = 256) extends Module {
     val idxWidth = log2Ceil(tableSize)
     val io = IO(new Bundle {
         // 查询
-        val query          = Input(Bool())
-        val query_pc       = Input(UInt(32.W))
-        val predict_taken  = Output(Bool())
-        //val predict_target = Output(UInt(32.W))
+        val query         = Input(Bool())
+        val query_pc      = Input(UInt(WORD_LEN.W))
+        val predict_taken = Output(Bool())
         // 更新
         val update        = Input(Bool())
-        val update_pc     = Input(UInt(32.W))
+        val update_pc     = Input(UInt(WORD_LEN.W))
         val update_taken  = Input(Bool())
-        //val update_target = Input(UInt(32.W))
     })
 
-    // 1位宽的BHT表
-    val bhtTable = RegInit(VecInit(Seq.fill(tableSize)(false.B)))
-    // 目标地址表
-    //val targetTable = RegInit(VecInit(Seq.fill(tableSize)(0.U(32.W))))
+    // 2位饱和计数器的 bht 表项，初始值一般为 2 (Weakly Taken) 或 0 (Strongly Not Taken)
+    val bhtTable = RegInit(VecInit(Seq.fill(tableSize)(2.U(2.W))))
 
     val query_idx = io.query_pc(idxWidth+1, 2)
-    io.predict_taken := Mux(io.query, bhtTable(query_idx), false.B)
-    //io.predict_target := Mux(io.query, targetTable(query_idx), 0.U)
+    // 最高位决定预测
+    io.predict_taken := Mux(io.query, bhtTable(query_idx)(1), false.B)
 
     when(io.update) {
         val update_idx = io.update_pc(idxWidth+1, 2)
-        bhtTable(update_idx) := io.update_taken
-        //targetTable(update_idx) := io.update_target
+        val counter = bhtTable(update_idx)
+
+        when(io.update_taken) {
+            // 实际跳转：计数器加1，饱和到3
+            bhtTable(update_idx) := Mux(counter === 3.U, 3.U, counter + 1.U)
+        } .otherwise {
+            // 实际未跳转：计数器减1，饱和到0
+            bhtTable(update_idx) := Mux(counter === 0.U, 0.U, counter - 1.U)
+        }
     }
 }
 
