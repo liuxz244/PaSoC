@@ -33,7 +33,6 @@ class DivModule extends Module {
     // "绝对值"形式输入
     val abs_op1 = Wire(UInt(WORD_LEN.W))
     abs_op1 := Mux(is_signed && op1_sign, (~io.op1_data).asUInt + 1.U, io.op1_data)
-
     val abs_op2 = Wire(UInt(WORD_LEN.W))
     abs_op2 := Mux(is_signed && op2_sign, (~io.op2_data).asUInt + 1.U, io.op2_data)
 
@@ -41,17 +40,19 @@ class DivModule extends Module {
     val quotient_neg = RegInit(false.B)
     val remainder_neg = RegInit(false.B)
 
-    // 设置launch条件，包含所有4种操作
+    // 启动条件
     val launch = (state === sIdle) && io.isDiv
     io.stall  := (state === sCalc) || launch
-    io.div_out := 0.U
+
+    val div_out_next = WireDefault(0.U(WORD_LEN.W))
+    val div_out_reg  = RegInit(0.U(WORD_LEN.W))
+    io.div_out := div_out_reg  // 默认从寄存器输出
 
     switch (state) {
         is (sIdle) {
             quotient  := 0.U
             remainder := 0.U
             cnt       := 0.U
-            // 符号控制寄存器
             quotient_neg := false.B
             remainder_neg := false.B
 
@@ -63,17 +64,15 @@ class DivModule extends Module {
             .elsewhen(is_signed) {
                 dividend  := abs_op1
                 divisor   := abs_op2
-                quotient_neg := op1_sign ^ op2_sign // 商的符号：被除数和除数符号不同，则商取负
-                remainder_neg := op1_sign           // 余数的符号：和被除数相同
+                quotient_neg := op1_sign ^ op2_sign
+                remainder_neg := op1_sign
                 state := sCalc
             }
         }
-
         is (sCalc) {
             val temp_rem = Cat(remainder(30,0), dividend(31)).asUInt
             val sub      = temp_rem - divisor
             when(divisor === 0.U){
-                // 除数为0：有符号行为与无符号一样
                 quotient := Fill(WORD_LEN, 1.U)
                 remainder := dividend
                 state := sDone
@@ -93,30 +92,36 @@ class DivModule extends Module {
                 }
             }
         }
-
         is (sDone) {
             state := sIdle
+            // 用组合逻辑生成输出
             when (io.alu_fnc === ALU_DIVU) {
-                io.div_out := quotient
+                div_out_next := quotient
             }.elsewhen(io.alu_fnc === ALU_REMU) {
-                io.div_out := remainder(31,0)
+                div_out_next := remainder(31,0)
             }.elsewhen(io.alu_fnc === ALU_DIV) {
                 val signed_quotient = Mux(quotient_neg,
                     (~quotient).asUInt + 1.U, // 商要取负
                     quotient)
-                // 特殊情况（INT_MIN / -1 溢出处理）
                 val overflow = (io.op1_data === "h80000000".U && io.op2_data === "hffffffff".U)
-                io.div_out := Mux(overflow, "h80000000".U, signed_quotient)
+                div_out_next := Mux(overflow, "h80000000".U, signed_quotient)
             }.elsewhen(io.alu_fnc === ALU_REM) {
                 val signed_remainder = Mux(remainder_neg,
                     (~remainder).asUInt + 1.U, // 余数要取负
                     remainder)
                 val overflow = (io.op1_data === "h80000000".U && io.op2_data === "hffffffff".U)
-                io.div_out := Mux(overflow, 0.U, signed_remainder)
+                div_out_next := Mux(overflow, 0.U, signed_remainder)
             }
         }
     }
+
+    // ========== 输出寄存器写入控制 ==========
+    when (state === sDone) {
+        div_out_reg := div_out_next  // 只在sDone写结果
+        io.div_out  := div_out_next 
+    }  // 其余情况下div_out_reg保持
 }
+
 
 
 class MulModule extends Module {
@@ -134,13 +139,16 @@ class MulModule extends Module {
     val state = RegInit(idle)
 
     // 把第一阶段所有乘法结果算好收集打拍
-    val muls_reg   = Reg(UInt(64.W))
-    val mulhsu_reg = Reg(UInt(32.W))
-    val mulhu_reg  = Reg(UInt(32.W))
-    val alu_fnc_reg = Reg(UInt(ALU_FNC_LEN.W))
+    val muls_reg     = Reg(UInt(64.W))
+    val mulhsu_reg   = Reg(UInt(32.W))
+    val mulhu_reg    = Reg(UInt(32.W))
+    val alu_fnc_reg  = Reg(UInt(ALU_FNC_LEN.W))
+    val mul_out_reg  = RegInit(0.U(WORD_LEN.W))
+    val mul_out_comb = Wire(UInt(WORD_LEN.W))
 
-    io.stall   := false.B // 默认
-    io.mul_out := 0.U // 默认
+    io.stall   := false.B     // 默认
+    io.mul_out := mul_out_reg // 默认
+    mul_out_comb := 0.U
 
     switch(state) {
         is(idle) {
@@ -157,12 +165,14 @@ class MulModule extends Module {
         }
         is(busy) {
             // 第二拍：根据锁存的 alu_fnc 选择输出
-            io.mul_out := MuxCase(0.U(WORD_LEN.W), Seq(
+            mul_out_comb := MuxCase(0.U(WORD_LEN.W), Seq(
                 (alu_fnc_reg === ALU_MUL)    -> muls_reg(31,0), 
                 (alu_fnc_reg === ALU_MULH)   -> muls_reg(63,32), 
                 (alu_fnc_reg === ALU_MULHSU) -> mulhsu_reg, 
                 (alu_fnc_reg === ALU_MULHU)  -> mulhu_reg, 
             ))
+            io.mul_out  := mul_out_comb
+            mul_out_reg := mul_out_comb
             state := idle // 完成输出，下个周期可接收新输入
         }
     }

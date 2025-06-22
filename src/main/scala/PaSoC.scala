@@ -22,7 +22,7 @@ class PaSoC(initHex: String) extends Module {
         val exit    = Output(Bool())
         val rx_flag = Input( Bool())
         val rx_data = Input(UInt(8.W))
-        val sdram   = new Sdr32bit8mIO
+        val sdram  = new Sdr32bit8mIO
     })
 
     val core  = Module(new PasoRV())

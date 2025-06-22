@@ -281,6 +281,7 @@ class SdrNodqm8M extends Module {
 }
 
 // 大体同上，但使用o_wstrb和DQM实现直接的半字/字节写入
+// 写延迟4周期，读延迟8周期
 class SdrEmbed8M extends Module {
     val io = IO(new Bundle {
         val bus   = new DBusPortIO
@@ -325,6 +326,62 @@ class SdrEmbed8M extends Module {
 }
 
 
+/*
+// 未实现的DDR3控制器，搭配高云IP使用
+// 由于时序不满足，资源占用量大等问题放弃
+class DDR16b128M extends Module {
+    val io = IO(new Bundle {
+        val bus = new DBusPortIO
+        val ddr = new DDR16b128mIO
+    })
+
+    // 默认输出
+    io.bus.rdata   := 0.U
+    io.bus.ready   := false.B
+    io.ddr.cmd     := 7.U
+    io.ddr.addr    := 0.U
+    io.ddr.cmd_en  := false.B
+    io.ddr.wr_data := 0.U
+    io.ddr.wr_en   := false.B
+    io.ddr.wr_end  := false.B
+    io.ddr.wr_mask := 0.U
+
+    // 状态机
+    val sIdle :: sCmd :: sWaitRead :: Nil = Enum(3)
+    val state = RegInit(sIdle)
+
+    // 保存请求相关参数
+    val reqAddr = Reg(UInt(28.W))
+
+    switch(state) {
+        is(sIdle) {
+            when(io.bus.valid && !io.bus.wen &&     // 读请求
+                 io.ddr.init_cpl && io.ddr.cmd_rdy  // DDR初始化完成且能接收命令
+            ) {
+                // 取 addr[27:0] 并转为16bit对齐
+                // 例如: [31:0] -> [27:0] >> 1 (字节转半字)
+                reqAddr := (io.bus.addr(27,0) >> 1)
+                state := sCmd
+            }
+        }
+        is(sCmd) {
+            // 发读命令，只持续一个周期
+            io.ddr.cmd_en := true.B
+            io.ddr.addr   := reqAddr
+            io.ddr.cmd    := 1.U
+            state := sWaitRead
+        }
+        is(sWaitRead) {
+            // 等待读结果
+            when(io.ddr.rd_valid && io.ddr.rd_end) {
+                io.bus.rdata := io.ddr.rd_data(31, 0)
+                io.bus.ready := true.B
+                state := sIdle
+            }
+        }
+    }
+}
+*/
 /*
 // ===== 测试发现还是有问题，最终只能实现8MB的读写=====
 // SDRAM控制器：支持32MB容量 W9825G6KH和MT48LC16M16
