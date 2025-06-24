@@ -326,6 +326,172 @@ class SdrEmbed8M extends Module {
 }
 
 
+class SimpleCache(
+    INDEX_WIDTH:  Int = 4, // 行数为 2^INDEX_WIDTH
+    OFFSET_WIDTH: Int = 2  // 块大小 2^OFFSET_WIDTH (单位:字节)
+) extends Module {
+    val io = IO(new Bundle {
+        val cpu = new DBusPortIO()
+        val mem = Flipped(new DBusPortIO())
+    })
+
+    val NR_LINES = 1 << INDEX_WIDTH
+    val TAG_WIDTH = WORD_LEN - INDEX_WIDTH - OFFSET_WIDTH
+
+    // 定义 cache 存储体，valid、tag、data
+    val valids  = RegInit(VecInit(Seq.fill(NR_LINES)(false.B)))
+    val tags    = RegInit(VecInit(Seq.fill(NR_LINES)(0.U(TAG_WIDTH.W))))
+    val dataArr = RegInit(VecInit(Seq.fill(NR_LINES)(VecInit(Seq.fill(4)(0.U(8.W))))))
+
+    // 地址分解
+    val addr     = io.cpu.addr
+    val index    = addr(OFFSET_WIDTH + INDEX_WIDTH - 1, OFFSET_WIDTH)
+    val tag      = addr(WORD_LEN-1, OFFSET_WIDTH + INDEX_WIDTH)
+    // 单次访问，未支持 burst
+    val req_valid = io.cpu.valid
+    val req_wen   = io.cpu.wen
+    val req_wdata = io.cpu.wdata
+    val req_ben   = io.cpu.ben
+
+    // 判断命中
+    val hit = valids(index) && (tags(index) === tag)
+    // 读写数据
+    val read_data = dataArr(index)
+
+    // 默认 ready
+    val cpu_rdata = Wire(UInt(WORD_LEN.W))
+    val cpu_ready = Wire(Bool())
+
+    // 用于访存
+    val mem_req = RegInit(false.B)
+    val mem_addr = Reg(UInt(WORD_LEN.W))
+    val mem_wen = Reg(Bool())
+    val mem_ben = Reg(UInt(4.W))
+
+    // 状态机: 仅两状态
+    val sIdle :: sMem :: Nil = Enum(2)
+    val state = RegInit(sIdle)
+
+    // 默认输出
+    io.cpu.rdata := 0.U
+    io.cpu.ready := false.B
+    io.mem.valid := false.B
+    io.mem.addr  := 0.U
+    io.mem.wen   := false.B
+    io.mem.ben   := 0.U
+    io.mem.wdata := 0.U
+
+    switch(state) {
+        is(sIdle) {
+            when(req_valid) {
+                when(hit) {
+                    when(req_wen) { // 写命中，写直达 cache
+                        // 支持按字节写
+                        for(i <- 0 until 4){
+                            when(req_ben(i)){
+                                dataArr(index)(i) := req_wdata(8*(i+1)-1, 8*i)
+                            }
+                        }
+                        // 读写立即完成
+                        io.cpu.ready := true.B
+                    }.otherwise { // 读命中
+                        io.cpu.rdata := read_data
+                        io.cpu.ready := true.B
+                    }
+                }.otherwise { // 未命中
+                    // 发起 DRAM 请求
+                    mem_req := true.B
+                    mem_addr := addr
+                    mem_wen := false.B // 只支持read miss，写直达需增加写回支持
+                    mem_ben := "b1111".U
+                    state := sMem
+                    io.cpu.ready := false.B
+                }
+            }
+        }
+        is(sMem) {
+            // 发起 DRAM 读
+            io.mem.valid := true.B
+            io.mem.addr := mem_addr
+            io.mem.wen := false.B
+            io.mem.ben := "b1111".U
+            when(io.mem.ready) {
+                // 数据写入 cache，并更新 tag/valid
+                dataArr(index) := io.mem.rdata
+                tags(index)    := tag
+                valids(index)  := true.B
+                io.cpu.rdata   := io.mem.rdata
+                io.cpu.ready   := true.B
+                state   := sIdle
+                mem_req := false.B
+            }
+        }
+    }
+    // 默认 io.cpu.rdata/ready 已在流程中处理
+}
+
+
+
+class SimDRAM(depth: Int) extends Module {
+    val io = IO(new Bundle {
+        val bus = new DBusPortIO()
+    })
+
+    // 注意：使用ByteAddress, 所以ram大小为depth字（不是字节）
+    val ram = Mem(depth, UInt(WORD_LEN.W))
+
+    // 记录最后一次请求的相关信息与计数
+    val doing   = RegInit(false.B)
+    val cnt     = RegInit(0.U(2.W))
+    val wenReg  = Reg(Bool())
+    val addrReg = Reg(UInt(log2Ceil(depth).W))
+    val wdataReg= Reg(UInt(WORD_LEN.W))
+    val benReg  = Reg(UInt(4.W))
+
+    // 默认输出
+    io.bus.rdata := 0.U
+    io.bus.ready := false.B
+
+    // address translation: 以字为单位
+    val addr_word = io.bus.addr(log2Ceil(depth * 4)-1, 2)    // 4字节对齐
+
+    when(io.bus.valid && !doing) {
+        // 拉高请求，采样
+        doing    := true.B
+        cnt      := 0.U
+        wenReg   := io.bus.wen
+        addrReg  := addr_word
+        wdataReg := io.bus.wdata
+        benReg   := io.bus.ben
+    }
+    when(doing) {
+        cnt := cnt + 1.U
+        when(cnt === 2.U) {      // 四周期延迟完成
+            doing := false.B
+            io.bus.ready := true.B
+            when(wenReg) {
+                // 写操作，片选ben
+                // 写Mask（按byte写）
+                val old = ram.read(addrReg)
+                val wmask = VecInit(Seq.tabulate(4)(i =>
+                    benReg(i)
+                ))
+                val wmaskData = Cat(
+                    (0 until 4).reverse.map{i =>
+                        Mux(benReg(i), wdataReg(8*(i+1)-1,8*i), old(8*(i+1)-1,8*i))
+                    }
+                )
+                ram.write(addrReg, wmaskData)
+            }
+            .otherwise {
+                // 读操作
+                io.bus.rdata := ram.read(addrReg)
+            }
+        }
+    }
+}
+
+
 /*
 // 未实现的DDR3控制器，搭配高云IP使用
 // 由于时序不满足，资源占用量大等问题放弃

@@ -12,7 +12,7 @@ class HexTest extends AnyFlatSpec with ChiselScalatestTester {
     "Hex Test" should "pass" in {
         val hexFile = sys.env.getOrElse("PASOC_INIT_HEX", " ")
         println(s"hexFile used: $hexFile\n")  // 初始程序文件名
-        test(new PaSoC(hexFile)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        test(new PaSoCSim(hexFile)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             dut.clock.setTimeout(0)  // 关闭Chisel原本的超时机制
             var stepCount = 0
             val maxCycles = 2000
@@ -35,7 +35,7 @@ class GpioTest extends AnyFlatSpec with ChiselScalatestTester {
     "Gpio Test" should "pass" in {
         val hexFile = sys.env.getOrElse("PASOC_INIT_HEX", " ")
         println(s"hexFile used: $hexFile\n")
-        test(new PaSoC(hexFile)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        test(new PaSoCSim(hexFile)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             dut.clock.setTimeout(0)
             var stepCount = 0
             val maxCycles = 3000
@@ -73,7 +73,7 @@ class UartTest extends AnyFlatSpec with ChiselScalatestTester {
     "Uart Test" should "pass" in {
         val hexFile = sys.env.getOrElse("PASOC_INIT_HEX", " ")
         println(s"hexFile used: $hexFile\n")  // 初始程序文件名
-        test(new PaSoC(hexFile)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        test(new PaSoCSim(hexFile)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             dut.clock.setTimeout(0)  // 关闭Chisel原本的超时机制
             var stepCount = 0
             val maxCycles = 5000

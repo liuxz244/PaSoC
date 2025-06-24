@@ -212,10 +212,10 @@ class UartCtrl extends Module {
     switch(io.bus.ben) {
         is("b0001".U) { write_num := 1.U; write_bytes(0) := bytes(0) }
         is("b0011".U) { write_num := 2.U
-                        write_bytes(0) := bytes(0); write_bytes(1) := bytes(1) }
+                        write_bytes(0) := bytes(1); write_bytes(1) := bytes(0) }
         is("b1111".U) { write_num := 4.U
-                        write_bytes(0) := bytes(0); write_bytes(1) := bytes(1)
-                        write_bytes(2) := bytes(2); write_bytes(3) := bytes(3) }
+                        write_bytes(0) := bytes(3); write_bytes(1) := bytes(2)
+                        write_bytes(2) := bytes(1); write_bytes(3) := bytes(0) }
     }
     val tx_fifo_space = (fifoDepth.U - txFifo.io.count)
     val tx_can_write  = (write_num =/= 0.U) && (tx_fifo_space >= write_num)

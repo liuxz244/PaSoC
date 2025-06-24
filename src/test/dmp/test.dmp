@@ -1,28 +1,27 @@
 
-/tmp/tmp.bDJFboLC8p/test.elf:     file format elf32-littleriscv
+/tmp/tmp.FmJMFLztvr/test.elf:     file format elf32-littleriscv
 
 
 Disassembly of section .text:
 
 00000000 <_start>:
    0:	400002b7          	lui	t0,0x40000
-   4:	12345337          	lui	t1,0x12345
-   8:	67830313          	addi	t1,t1,1656 # 12345678 <_stack_limit+0x2344678>
+   4:	41424337          	lui	t1,0x41424
+   8:	34430313          	addi	t1,t1,836 # 41424344 <_stack_limit+0x31423344>
    c:	0062a023          	sw	t1,0(t0) # 40000000 <_stack_limit+0x2ffff000>
   10:	30000e37          	lui	t3,0x30000
   14:	0022c383          	lbu	t2,2(t0)
   18:	007e0023          	sb	t2,0(t3) # 30000000 <_stack_limit+0x1ffff000>
   1c:	0002a383          	lw	t2,0(t0)
   20:	007e2023          	sw	t2,0(t3)
-  24:	0000beb7          	lui	t4,0xb
-  28:	bcde8e93          	addi	t4,t4,-1075 # abcd <STACK_SIZE+0x9bcd>
+  24:	00004eb7          	lui	t4,0x4
+  28:	546e8e93          	addi	t4,t4,1350 # 4546 <STACK_SIZE+0x3546>
   2c:	01d29123          	sh	t4,2(t0)
-  30:	00000013          	nop
-  34:	0022d383          	lhu	t2,2(t0)
-  38:	007e1023          	sh	t2,0(t3)
-  3c:	0002a383          	lw	t2,0(t0)
-  40:	007e2023          	sw	t2,0(t3)
-  44:	0000006f          	j	44 <_start+0x44>
+  30:	0022d383          	lhu	t2,2(t0)
+  34:	007e1023          	sh	t2,0(t3)
+  38:	0002a383          	lw	t2,0(t0)
+  3c:	007e2023          	sw	t2,0(t3)
+  40:	c0001073          	unimp
 
 Disassembly of section .riscv.attributes:
 

@@ -10,8 +10,6 @@ import sys.process._   // 使用linux命令
 
 
 class PaSoC(initHex: String) extends Module {
-    val sim = sys.env.getOrElse("PASOC_SIM", "0") == "1"
-
     val io = IO(new Bundle {
         //val inst_rx = Input(Bool())
         val gpio    = new GPIOPortIO()
@@ -19,9 +17,6 @@ class PaSoC(initHex: String) extends Module {
         val uart_tx = Output(Bool())
         val uart_rx = Input( Bool())
         val irq     = Input(UInt(7.W))
-        val exit    = Output(Bool())
-        val rx_flag = Input( Bool())
-        val rx_data = Input(UInt(8.W))
         val sdram  = new Sdr32bit8mIO
     })
 
@@ -55,6 +50,61 @@ class PaSoC(initHex: String) extends Module {
     uart.io.tx     <> io.uart_tx
     uart.io.rx     <> io.uart_rx
     sdram.io.sdram <> io.sdram
+    
+    uart.io.rx_flag := false.B
+    uart.io.rx_data := 0.U
+
+    // PLIC中断源输入
+    plic.io.irq_in := Cat(gpio.io.irq, io.irq)  
+    
+    core.io.clint := clint.io.irq   // 连接定时器中断
+    core.io.plic  := plic.io.irq_out  // 连接外部中断
+    
+}
+
+
+class PaSoCSim(initHex: String) extends Module {
+    val io = IO(new Bundle {
+        //val inst_rx = Input(Bool())
+        val gpio    = new GPIOPortIO()
+        val pwm     = Output(UInt(PWM_LEN.W))
+        val uart_tx = Output(Bool())
+        val uart_rx = Input( Bool())
+        val irq     = Input(UInt(7.W))
+        val exit    = Output(Bool())
+        val rx_flag = Input( Bool())
+        val rx_data = Input(UInt(8.W))
+    })
+
+    val core  = Module(new PasoRV())
+    val imem  = Module(new ITCM(4096, initHex))
+    val dmem  = Module(new DTCM(2048, initHex))
+    val gpio  = Module(new GPIOCtrl())
+    val pwm   = Module(new PWMCtrl())
+    val uart  = Module(new UartCtrl())
+    val plic  = Module(new PLIC())
+    val clint = Module(new CLINT())
+    val dram  = Module(new SimDRAM(8192))
+
+    // 添加可配置外设数量的总线选择器
+    val dbus = Module(new DBusMux(7))
+    core.io.ibus <> imem.io.bus
+    core.io.dbus <> dbus.io.bus
+    // 将dmem连接到dbusMux第1个外设端口，gcc规定不能和ITCM的地址重叠
+    gpio.io.bus  <> dbus.io.devs(0)
+    dmem.io.bus  <> dbus.io.devs(1)
+    pwm.io.bus   <> dbus.io.devs(2)
+    uart.io.bus  <> dbus.io.devs(3)
+    dram.io.bus  <> dbus.io.devs(4)
+    plic.io.bus  <> dbus.io.devs(5)
+    clint.io.bus <> dbus.io.devs(6)
+    
+    // 外设输入输出
+    //imem.io.rx   <> io.inst_rx
+    gpio.io.gpio   <> io.gpio
+    pwm.io.pwm     <> io.pwm
+    uart.io.tx     <> io.uart_tx
+    uart.io.rx     <> io.uart_rx
 
     uart.io.rx_flag := io.rx_flag
     uart.io.rx_data := io.rx_data
