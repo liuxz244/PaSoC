@@ -123,7 +123,6 @@ class DivModule extends Module {
 }
 
 
-
 class MulModule extends Module {
     val io = IO(new Bundle {
         val op1_data = Input(UInt(WORD_LEN.W))

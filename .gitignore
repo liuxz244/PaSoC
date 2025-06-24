@@ -7,11 +7,9 @@
 # 忽略所有目录下 prompt.txt 文件
 **/prompt.txt
 
-# 忽略所有 .v 文件
-*.v
-
-# 忽略所有 .sv 文件
-*.sv
+# 忽略生成的Verilog文件
+PaSoC.v
+PaSoC.sv
 
 /project/project/
 /project/target/
