@@ -1,14 +1,14 @@
 
-/tmp/tmp.W99SaydMnz/bios.elf:     file format elf32-littleriscv
+/tmp/tmp.vWbWcE4Wbk/bios.elf:     file format elf32-littleriscv
 
 
 Disassembly of section .text:
 
 00000000 <_start>:
-       0:	10002117          	auipc	sp,0x10002
+       0:	40008117          	auipc	sp,0x40008
        4:	00010113          	mv	sp,sp
        8:	300002b7          	lui	t0,0x30000
-       c:	00028023          	sb	zero,0(t0) # 30000000 <_stack_top+0x1fffe000>
+       c:	00028023          	sb	zero,0(t0) # 30000000 <STACK_TOP+0x2fff8000>
       10:	2f4010ef          	jal	1304 <main>
       14:	01400293          	li	t0,20
       18:	fff28293          	addi	t0,t0,-1
@@ -17,7 +17,7 @@ Disassembly of section .text:
       24:	0000006f          	j	24 <_start+0x24>
 
 00000028 <print_char>:
-      28:	fe010113          	addi	sp,sp,-32 # 10001fe0 <_stack_limit+0xfe0>
+      28:	fe010113          	addi	sp,sp,-32 # 40007fe0 <_stack_limit+0x3fe0>
       2c:	00112e23          	sw	ra,28(sp)
       30:	00812c23          	sw	s0,24(sp)
       34:	02010413          	addi	s0,sp,32
@@ -25,7 +25,7 @@ Disassembly of section .text:
       3c:	fef407a3          	sb	a5,-17(s0)
       40:	300007b7          	lui	a5,0x30000
       44:	fef44703          	lbu	a4,-17(s0)
-      48:	00e78023          	sb	a4,0(a5) # 30000000 <_stack_top+0x1fffe000>
+      48:	00e78023          	sb	a4,0(a5) # 30000000 <STACK_TOP+0x2fff8000>
       4c:	00000013          	nop
       50:	01c12083          	lw	ra,28(sp)
       54:	01812403          	lw	s0,24(sp)
@@ -160,7 +160,7 @@ Disassembly of section .text:
      228:	00812c23          	sw	s0,24(sp)
      22c:	02010413          	addi	s0,sp,32
      230:	300007b7          	lui	a5,0x30000
-     234:	00478793          	addi	a5,a5,4 # 30000004 <_stack_top+0x1fffe004>
+     234:	00478793          	addi	a5,a5,4 # 30000004 <STACK_TOP+0x2fff8004>
      238:	0007c783          	lbu	a5,0(a5)
      23c:	fef407a3          	sb	a5,-17(s0)
      240:	fef44783          	lbu	a5,-17(s0)
@@ -313,7 +313,7 @@ Disassembly of section .text:
      454:	fe442783          	lw	a5,-28(s0)
      458:	fdc42683          	lw	a3,-36(s0)
      45c:	00f687b3          	add	a5,a3,a5
-     460:	00074703          	lbu	a4,0(a4) # 10000000 <main+0xfffecfc>
+     460:	00074703          	lbu	a4,0(a4) # 10000000 <STACK_TOP+0xfff8000>
      464:	00e78023          	sb	a4,0(a5)
      468:	fe442783          	lw	a5,-28(s0)
      46c:	fdc42703          	lw	a4,-36(s0)
@@ -727,7 +727,7 @@ Disassembly of section .text:
      ab4:	fdc42783          	lw	a5,-36(s0)
      ab8:	01078713          	addi	a4,a5,16
      abc:	100007b7          	lui	a5,0x10000
-     ac0:	01478593          	addi	a1,a5,20 # 10000014 <main+0xfffed10>
+     ac0:	01478593          	addi	a1,a5,20 # 10000014 <STACK_TOP+0xfff8014>
      ac4:	00070513          	mv	a0,a4
      ac8:	eccff0ef          	jal	194 <strcmp>
      acc:	00050793          	mv	a5,a0
@@ -735,19 +735,19 @@ Disassembly of section .text:
      ad4:	e60ff0ef          	jal	134 <gpio_read_in>
      ad8:	fea42623          	sw	a0,-20(s0)
      adc:	100007b7          	lui	a5,0x10000
-     ae0:	01878513          	addi	a0,a5,24 # 10000018 <main+0xfffed14>
+     ae0:	01878513          	addi	a0,a5,24 # 10000018 <STACK_TOP+0xfff8018>
      ae4:	d7cff0ef          	jal	60 <print_str>
      ae8:	00800593          	li	a1,8
      aec:	fec42503          	lw	a0,-20(s0)
      af0:	dc4ff0ef          	jal	b4 <print_hex>
      af4:	100007b7          	lui	a5,0x10000
-     af8:	02c78513          	addi	a0,a5,44 # 1000002c <main+0xfffed28>
+     af8:	02c78513          	addi	a0,a5,44 # 1000002c <STACK_TOP+0xfff802c>
      afc:	d64ff0ef          	jal	60 <print_str>
      b00:	0b40006f          	j	bb4 <handle_gpio_command+0x114>
      b04:	fdc42783          	lw	a5,-36(s0)
      b08:	01078713          	addi	a4,a5,16
      b0c:	100007b7          	lui	a5,0x10000
-     b10:	03078593          	addi	a1,a5,48 # 10000030 <main+0xfffed2c>
+     b10:	03078593          	addi	a1,a5,48 # 10000030 <STACK_TOP+0xfff8030>
      b14:	00070513          	mv	a0,a4
      b18:	e7cff0ef          	jal	194 <strcmp>
      b1c:	00050793          	mv	a5,a0
@@ -756,7 +756,7 @@ Disassembly of section .text:
      b28:	0207c783          	lbu	a5,32(a5)
      b2c:	00079a63          	bnez	a5,b40 <handle_gpio_command+0xa0>
      b30:	100007b7          	lui	a5,0x10000
-     b34:	03478513          	addi	a0,a5,52 # 10000034 <main+0xfffed30>
+     b34:	03478513          	addi	a0,a5,52 # 10000034 <STACK_TOP+0xfff8034>
      b38:	d28ff0ef          	jal	60 <print_str>
      b3c:	0780006f          	j	bb4 <handle_gpio_command+0x114>
      b40:	fdc42783          	lw	a5,-36(s0)
@@ -768,25 +768,25 @@ Disassembly of section .text:
      b58:	00050793          	mv	a5,a0
      b5c:	00078a63          	beqz	a5,b70 <handle_gpio_command+0xd0>
      b60:	100007b7          	lui	a5,0x10000
-     b64:	07078513          	addi	a0,a5,112 # 10000070 <main+0xfffed6c>
+     b64:	07078513          	addi	a0,a5,112 # 10000070 <STACK_TOP+0xfff8070>
      b68:	cf8ff0ef          	jal	60 <print_str>
      b6c:	0480006f          	j	bb4 <handle_gpio_command+0x114>
      b70:	fe842783          	lw	a5,-24(s0)
      b74:	00078513          	mv	a0,a5
      b78:	de8ff0ef          	jal	160 <gpio_write_out>
      b7c:	100007b7          	lui	a5,0x10000
-     b80:	0b078513          	addi	a0,a5,176 # 100000b0 <main+0xfffedac>
+     b80:	0b078513          	addi	a0,a5,176 # 100000b0 <STACK_TOP+0xfff80b0>
      b84:	cdcff0ef          	jal	60 <print_str>
      b88:	fe842783          	lw	a5,-24(s0)
      b8c:	00800593          	li	a1,8
      b90:	00078513          	mv	a0,a5
      b94:	d20ff0ef          	jal	b4 <print_hex>
      b98:	100007b7          	lui	a5,0x10000
-     b9c:	0c878513          	addi	a0,a5,200 # 100000c8 <main+0xfffedc4>
+     b9c:	0c878513          	addi	a0,a5,200 # 100000c8 <STACK_TOP+0xfff80c8>
      ba0:	cc0ff0ef          	jal	60 <print_str>
      ba4:	0100006f          	j	bb4 <handle_gpio_command+0x114>
      ba8:	100007b7          	lui	a5,0x10000
-     bac:	0e478513          	addi	a0,a5,228 # 100000e4 <main+0xfffede0>
+     bac:	0e478513          	addi	a0,a5,228 # 100000e4 <STACK_TOP+0xfff80e4>
      bb0:	cb0ff0ef          	jal	60 <print_str>
      bb4:	02c12083          	lw	ra,44(sp)
      bb8:	02812403          	lw	s0,40(sp)
@@ -802,7 +802,7 @@ Disassembly of section .text:
      bd8:	fbc42783          	lw	a5,-68(s0)
      bdc:	01078713          	addi	a4,a5,16
      be0:	100007b7          	lui	a5,0x10000
-     be4:	12078593          	addi	a1,a5,288 # 10000120 <main+0xfffee1c>
+     be4:	12078593          	addi	a1,a5,288 # 10000120 <STACK_TOP+0xfff8120>
      be8:	00070513          	mv	a0,a4
      bec:	da8ff0ef          	jal	194 <strcmp>
      bf0:	00050793          	mv	a5,a0
@@ -810,7 +810,7 @@ Disassembly of section .text:
      bf8:	fbc42783          	lw	a5,-68(s0)
      bfc:	01078713          	addi	a4,a5,16
      c00:	100007b7          	lui	a5,0x10000
-     c04:	12878593          	addi	a1,a5,296 # 10000128 <main+0xfffee24>
+     c04:	12878593          	addi	a1,a5,296 # 10000128 <STACK_TOP+0xfff8128>
      c08:	00070513          	mv	a0,a4
      c0c:	d88ff0ef          	jal	194 <strcmp>
      c10:	00050793          	mv	a5,a0
@@ -824,34 +824,34 @@ Disassembly of section .text:
      c30:	00050793          	mv	a5,a0
      c34:	00078a63          	beqz	a5,c48 <handle_mem_command+0x84>
      c38:	100007b7          	lui	a5,0x10000
-     c3c:	13078513          	addi	a0,a5,304 # 10000130 <main+0xfffee2c>
+     c3c:	13078513          	addi	a0,a5,304 # 10000130 <STACK_TOP+0xfff8130>
      c40:	c20ff0ef          	jal	60 <print_str>
-     c44:	4c80006f          	j	110c <STACK_SIZE+0x10c>
+     c44:	4c80006f          	j	110c <handle_mem_command+0x548>
      c48:	fe042783          	lw	a5,-32(s0)
      c4c:	00078513          	mv	a0,a5
      c50:	e40ff0ef          	jal	290 <read_mem>
      c54:	fea42223          	sw	a0,-28(s0)
      c58:	100007b7          	lui	a5,0x10000
-     c5c:	16878513          	addi	a0,a5,360 # 10000168 <main+0xfffee64>
+     c5c:	16878513          	addi	a0,a5,360 # 10000168 <STACK_TOP+0xfff8168>
      c60:	c00ff0ef          	jal	60 <print_str>
      c64:	fe042783          	lw	a5,-32(s0)
      c68:	00800593          	li	a1,8
      c6c:	00078513          	mv	a0,a5
      c70:	c44ff0ef          	jal	b4 <print_hex>
      c74:	100007b7          	lui	a5,0x10000
-     c78:	17478513          	addi	a0,a5,372 # 10000174 <main+0xfffee70>
+     c78:	17478513          	addi	a0,a5,372 # 10000174 <STACK_TOP+0xfff8174>
      c7c:	be4ff0ef          	jal	60 <print_str>
      c80:	00800593          	li	a1,8
      c84:	fe442503          	lw	a0,-28(s0)
      c88:	c2cff0ef          	jal	b4 <print_hex>
      c8c:	100007b7          	lui	a5,0x10000
-     c90:	02c78513          	addi	a0,a5,44 # 1000002c <main+0xfffed28>
+     c90:	02c78513          	addi	a0,a5,44 # 1000002c <STACK_TOP+0xfff802c>
      c94:	bccff0ef          	jal	60 <print_str>
-     c98:	4740006f          	j	110c <STACK_SIZE+0x10c>
+     c98:	4740006f          	j	110c <handle_mem_command+0x548>
      c9c:	fbc42783          	lw	a5,-68(s0)
      ca0:	01078713          	addi	a4,a5,16
      ca4:	100007b7          	lui	a5,0x10000
-     ca8:	17c78593          	addi	a1,a5,380 # 1000017c <main+0xfffee78>
+     ca8:	17c78593          	addi	a1,a5,380 # 1000017c <STACK_TOP+0xfff817c>
      cac:	00070513          	mv	a0,a4
      cb0:	ce4ff0ef          	jal	194 <strcmp>
      cb4:	00050793          	mv	a5,a0
@@ -865,36 +865,36 @@ Disassembly of section .text:
      cd4:	00050793          	mv	a5,a0
      cd8:	00078a63          	beqz	a5,cec <handle_mem_command+0x128>
      cdc:	100007b7          	lui	a5,0x10000
-     ce0:	18478513          	addi	a0,a5,388 # 10000184 <main+0xfffee80>
+     ce0:	18478513          	addi	a0,a5,388 # 10000184 <STACK_TOP+0xfff8184>
      ce4:	b7cff0ef          	jal	60 <print_str>
-     ce8:	4240006f          	j	110c <STACK_SIZE+0x10c>
+     ce8:	4240006f          	j	110c <handle_mem_command+0x548>
      cec:	fdc42783          	lw	a5,-36(s0)
      cf0:	00078513          	mv	a0,a5
      cf4:	e08ff0ef          	jal	2fc <read_mem16>
      cf8:	00050793          	mv	a5,a0
      cfc:	fef41423          	sh	a5,-24(s0)
      d00:	100007b7          	lui	a5,0x10000
-     d04:	1bc78513          	addi	a0,a5,444 # 100001bc <main+0xfffeeb8>
+     d04:	1bc78513          	addi	a0,a5,444 # 100001bc <STACK_TOP+0xfff81bc>
      d08:	b58ff0ef          	jal	60 <print_str>
      d0c:	fdc42783          	lw	a5,-36(s0)
      d10:	00800593          	li	a1,8
      d14:	00078513          	mv	a0,a5
      d18:	b9cff0ef          	jal	b4 <print_hex>
      d1c:	100007b7          	lui	a5,0x10000
-     d20:	17478513          	addi	a0,a5,372 # 10000174 <main+0xfffee70>
+     d20:	17478513          	addi	a0,a5,372 # 10000174 <STACK_TOP+0xfff8174>
      d24:	b3cff0ef          	jal	60 <print_str>
      d28:	fe845783          	lhu	a5,-24(s0)
      d2c:	00400593          	li	a1,4
      d30:	00078513          	mv	a0,a5
      d34:	b80ff0ef          	jal	b4 <print_hex>
      d38:	100007b7          	lui	a5,0x10000
-     d3c:	02c78513          	addi	a0,a5,44 # 1000002c <main+0xfffed28>
+     d3c:	02c78513          	addi	a0,a5,44 # 1000002c <STACK_TOP+0xfff802c>
      d40:	b20ff0ef          	jal	60 <print_str>
-     d44:	3c80006f          	j	110c <STACK_SIZE+0x10c>
+     d44:	3c80006f          	j	110c <handle_mem_command+0x548>
      d48:	fbc42783          	lw	a5,-68(s0)
      d4c:	01078713          	addi	a4,a5,16
      d50:	100007b7          	lui	a5,0x10000
-     d54:	1c878593          	addi	a1,a5,456 # 100001c8 <main+0xfffeec4>
+     d54:	1c878593          	addi	a1,a5,456 # 100001c8 <STACK_TOP+0xfff81c8>
      d58:	00070513          	mv	a0,a4
      d5c:	c38ff0ef          	jal	194 <strcmp>
      d60:	00050793          	mv	a5,a0
@@ -908,36 +908,36 @@ Disassembly of section .text:
      d80:	00050793          	mv	a5,a0
      d84:	00078a63          	beqz	a5,d98 <handle_mem_command+0x1d4>
      d88:	100007b7          	lui	a5,0x10000
-     d8c:	1d078513          	addi	a0,a5,464 # 100001d0 <main+0xfffeecc>
+     d8c:	1d078513          	addi	a0,a5,464 # 100001d0 <STACK_TOP+0xfff81d0>
      d90:	ad0ff0ef          	jal	60 <print_str>
-     d94:	3780006f          	j	110c <STACK_SIZE+0x10c>
+     d94:	3780006f          	j	110c <handle_mem_command+0x548>
      d98:	fd842783          	lw	a5,-40(s0)
      d9c:	00078513          	mv	a0,a5
      da0:	dd0ff0ef          	jal	370 <read_mem8>
      da4:	00050793          	mv	a5,a0
      da8:	fef405a3          	sb	a5,-21(s0)
      dac:	100007b7          	lui	a5,0x10000
-     db0:	20478513          	addi	a0,a5,516 # 10000204 <main+0xfffef00>
+     db0:	20478513          	addi	a0,a5,516 # 10000204 <STACK_TOP+0xfff8204>
      db4:	aacff0ef          	jal	60 <print_str>
      db8:	fd842783          	lw	a5,-40(s0)
      dbc:	00800593          	li	a1,8
      dc0:	00078513          	mv	a0,a5
      dc4:	af0ff0ef          	jal	b4 <print_hex>
      dc8:	100007b7          	lui	a5,0x10000
-     dcc:	17478513          	addi	a0,a5,372 # 10000174 <main+0xfffee70>
+     dcc:	17478513          	addi	a0,a5,372 # 10000174 <STACK_TOP+0xfff8174>
      dd0:	a90ff0ef          	jal	60 <print_str>
      dd4:	feb44783          	lbu	a5,-21(s0)
      dd8:	00200593          	li	a1,2
      ddc:	00078513          	mv	a0,a5
      de0:	ad4ff0ef          	jal	b4 <print_hex>
      de4:	100007b7          	lui	a5,0x10000
-     de8:	02c78513          	addi	a0,a5,44 # 1000002c <main+0xfffed28>
+     de8:	02c78513          	addi	a0,a5,44 # 1000002c <STACK_TOP+0xfff802c>
      dec:	a74ff0ef          	jal	60 <print_str>
-     df0:	31c0006f          	j	110c <STACK_SIZE+0x10c>
+     df0:	31c0006f          	j	110c <handle_mem_command+0x548>
      df4:	fbc42783          	lw	a5,-68(s0)
      df8:	01078713          	addi	a4,a5,16
      dfc:	100007b7          	lui	a5,0x10000
-     e00:	21078593          	addi	a1,a5,528 # 10000210 <main+0xfffef0c>
+     e00:	21078593          	addi	a1,a5,528 # 10000210 <STACK_TOP+0xfff8210>
      e04:	00070513          	mv	a0,a4
      e08:	b8cff0ef          	jal	194 <strcmp>
      e0c:	00050793          	mv	a5,a0
@@ -945,7 +945,7 @@ Disassembly of section .text:
      e14:	fbc42783          	lw	a5,-68(s0)
      e18:	01078713          	addi	a4,a5,16
      e1c:	100007b7          	lui	a5,0x10000
-     e20:	21878593          	addi	a1,a5,536 # 10000218 <main+0xfffef14>
+     e20:	21878593          	addi	a1,a5,536 # 10000218 <STACK_TOP+0xfff8218>
      e24:	00070513          	mv	a0,a4
      e28:	b6cff0ef          	jal	194 <strcmp>
      e2c:	00050793          	mv	a5,a0
@@ -957,9 +957,9 @@ Disassembly of section .text:
      e44:	0307c783          	lbu	a5,48(a5)
      e48:	00079a63          	bnez	a5,e5c <handle_mem_command+0x298>
      e4c:	100007b7          	lui	a5,0x10000
-     e50:	22078513          	addi	a0,a5,544 # 10000220 <main+0xfffef1c>
+     e50:	22078513          	addi	a0,a5,544 # 10000220 <STACK_TOP+0xfff8220>
      e54:	a0cff0ef          	jal	60 <print_str>
-     e58:	2b40006f          	j	110c <STACK_SIZE+0x10c>
+     e58:	2b40006f          	j	110c <handle_mem_command+0x548>
      e5c:	fbc42783          	lw	a5,-68(s0)
      e60:	02078793          	addi	a5,a5,32
      e64:	fd440713          	addi	a4,s0,-44
@@ -977,40 +977,40 @@ Disassembly of section .text:
      e94:	00050793          	mv	a5,a0
      e98:	00078a63          	beqz	a5,eac <handle_mem_command+0x2e8>
      e9c:	100007b7          	lui	a5,0x10000
-     ea0:	26478513          	addi	a0,a5,612 # 10000264 <main+0xfffef60>
+     ea0:	26478513          	addi	a0,a5,612 # 10000264 <STACK_TOP+0xfff8264>
      ea4:	9bcff0ef          	jal	60 <print_str>
-     ea8:	2640006f          	j	110c <STACK_SIZE+0x10c>
+     ea8:	2640006f          	j	110c <handle_mem_command+0x548>
      eac:	fd442783          	lw	a5,-44(s0)
      eb0:	fd042703          	lw	a4,-48(s0)
      eb4:	00070593          	mv	a1,a4
      eb8:	00078513          	mv	a0,a5
      ebc:	b9cff0ef          	jal	258 <write_mem>
      ec0:	100007b7          	lui	a5,0x10000
-     ec4:	16878513          	addi	a0,a5,360 # 10000168 <main+0xfffee64>
+     ec4:	16878513          	addi	a0,a5,360 # 10000168 <STACK_TOP+0xfff8168>
      ec8:	998ff0ef          	jal	60 <print_str>
      ecc:	fd442783          	lw	a5,-44(s0)
      ed0:	00800593          	li	a1,8
      ed4:	00078513          	mv	a0,a5
      ed8:	9dcff0ef          	jal	b4 <print_hex>
      edc:	100007b7          	lui	a5,0x10000
-     ee0:	2b478513          	addi	a0,a5,692 # 100002b4 <main+0xfffefb0>
+     ee0:	2b478513          	addi	a0,a5,692 # 100002b4 <STACK_TOP+0xfff82b4>
      ee4:	97cff0ef          	jal	60 <print_str>
      ee8:	fd042783          	lw	a5,-48(s0)
      eec:	00800593          	li	a1,8
      ef0:	00078513          	mv	a0,a5
      ef4:	9c0ff0ef          	jal	b4 <print_hex>
      ef8:	100007b7          	lui	a5,0x10000
-     efc:	2bc78513          	addi	a0,a5,700 # 100002bc <main+0xfffefb8>
+     efc:	2bc78513          	addi	a0,a5,700 # 100002bc <STACK_TOP+0xfff82bc>
      f00:	960ff0ef          	jal	60 <print_str>
-     f04:	2080006f          	j	110c <STACK_SIZE+0x10c>
+     f04:	2080006f          	j	110c <handle_mem_command+0x548>
      f08:	fbc42783          	lw	a5,-68(s0)
      f0c:	01078713          	addi	a4,a5,16
      f10:	100007b7          	lui	a5,0x10000
-     f14:	2d878593          	addi	a1,a5,728 # 100002d8 <main+0xfffefd4>
+     f14:	2d878593          	addi	a1,a5,728 # 100002d8 <STACK_TOP+0xfff82d8>
      f18:	00070513          	mv	a0,a4
      f1c:	a78ff0ef          	jal	194 <strcmp>
      f20:	00050793          	mv	a5,a0
-     f24:	0e079063          	bnez	a5,1004 <STACK_SIZE+0x4>
+     f24:	0e079063          	bnez	a5,1004 <handle_mem_command+0x440>
      f28:	fbc42783          	lw	a5,-68(s0)
      f2c:	0207c783          	lbu	a5,32(a5)
      f30:	00078863          	beqz	a5,f40 <handle_mem_command+0x37c>
@@ -1018,9 +1018,9 @@ Disassembly of section .text:
      f38:	0307c783          	lbu	a5,48(a5)
      f3c:	00079a63          	bnez	a5,f50 <handle_mem_command+0x38c>
      f40:	100007b7          	lui	a5,0x10000
-     f44:	2e078513          	addi	a0,a5,736 # 100002e0 <main+0xfffefdc>
+     f44:	2e078513          	addi	a0,a5,736 # 100002e0 <STACK_TOP+0xfff82e0>
      f48:	918ff0ef          	jal	60 <print_str>
-     f4c:	1c00006f          	j	110c <STACK_SIZE+0x10c>
+     f4c:	1c00006f          	j	110c <handle_mem_command+0x548>
      f50:	fbc42783          	lw	a5,-68(s0)
      f54:	02078793          	addi	a5,a5,32
      f58:	fcc40713          	addi	a4,s0,-52
@@ -1038,9 +1038,9 @@ Disassembly of section .text:
      f88:	00050793          	mv	a5,a0
      f8c:	00078a63          	beqz	a5,fa0 <handle_mem_command+0x3dc>
      f90:	100007b7          	lui	a5,0x10000
-     f94:	32478513          	addi	a0,a5,804 # 10000324 <main+0xffff020>
+     f94:	32478513          	addi	a0,a5,804 # 10000324 <STACK_TOP+0xfff8324>
      f98:	8c8ff0ef          	jal	60 <print_str>
-     f9c:	1700006f          	j	110c <STACK_SIZE+0x10c>
+     f9c:	1700006f          	j	110c <handle_mem_command+0x548>
      fa0:	fc842783          	lw	a5,-56(s0)
      fa4:	fef41623          	sh	a5,-20(s0)
      fa8:	fcc42783          	lw	a5,-52(s0)
@@ -1049,41 +1049,41 @@ Disassembly of section .text:
      fb4:	00078513          	mv	a0,a5
      fb8:	b08ff0ef          	jal	2c0 <write_mem16>
      fbc:	100007b7          	lui	a5,0x10000
-     fc0:	1bc78513          	addi	a0,a5,444 # 100001bc <main+0xfffeeb8>
+     fc0:	1bc78513          	addi	a0,a5,444 # 100001bc <STACK_TOP+0xfff81bc>
      fc4:	89cff0ef          	jal	60 <print_str>
      fc8:	fcc42783          	lw	a5,-52(s0)
      fcc:	00800593          	li	a1,8
      fd0:	00078513          	mv	a0,a5
      fd4:	8e0ff0ef          	jal	b4 <print_hex>
      fd8:	100007b7          	lui	a5,0x10000
-     fdc:	2b478513          	addi	a0,a5,692 # 100002b4 <main+0xfffefb0>
+     fdc:	2b478513          	addi	a0,a5,692 # 100002b4 <STACK_TOP+0xfff82b4>
      fe0:	880ff0ef          	jal	60 <print_str>
      fe4:	fec45783          	lhu	a5,-20(s0)
      fe8:	00400593          	li	a1,4
      fec:	00078513          	mv	a0,a5
      ff0:	8c4ff0ef          	jal	b4 <print_hex>
      ff4:	100007b7          	lui	a5,0x10000
-     ff8:	37078513          	addi	a0,a5,880 # 10000370 <main+0xffff06c>
+     ff8:	37078513          	addi	a0,a5,880 # 10000370 <STACK_TOP+0xfff8370>
      ffc:	864ff0ef          	jal	60 <print_str>
-    1000:	10c0006f          	j	110c <STACK_SIZE+0x10c>
+    1000:	10c0006f          	j	110c <handle_mem_command+0x548>
     1004:	fbc42783          	lw	a5,-68(s0)
     1008:	01078713          	addi	a4,a5,16
     100c:	100007b7          	lui	a5,0x10000
-    1010:	38c78593          	addi	a1,a5,908 # 1000038c <main+0xffff088>
+    1010:	38c78593          	addi	a1,a5,908 # 1000038c <STACK_TOP+0xfff838c>
     1014:	00070513          	mv	a0,a4
     1018:	97cff0ef          	jal	194 <strcmp>
     101c:	00050793          	mv	a5,a0
-    1020:	0e079063          	bnez	a5,1100 <STACK_SIZE+0x100>
+    1020:	0e079063          	bnez	a5,1100 <handle_mem_command+0x53c>
     1024:	fbc42783          	lw	a5,-68(s0)
     1028:	0207c783          	lbu	a5,32(a5)
-    102c:	00078863          	beqz	a5,103c <STACK_SIZE+0x3c>
+    102c:	00078863          	beqz	a5,103c <handle_mem_command+0x478>
     1030:	fbc42783          	lw	a5,-68(s0)
     1034:	0307c783          	lbu	a5,48(a5)
-    1038:	00079a63          	bnez	a5,104c <STACK_SIZE+0x4c>
+    1038:	00079a63          	bnez	a5,104c <handle_mem_command+0x488>
     103c:	100007b7          	lui	a5,0x10000
-    1040:	39478513          	addi	a0,a5,916 # 10000394 <main+0xffff090>
+    1040:	39478513          	addi	a0,a5,916 # 10000394 <STACK_TOP+0xfff8394>
     1044:	81cff0ef          	jal	60 <print_str>
-    1048:	0c40006f          	j	110c <STACK_SIZE+0x10c>
+    1048:	0c40006f          	j	110c <handle_mem_command+0x548>
     104c:	fbc42783          	lw	a5,-68(s0)
     1050:	02078793          	addi	a5,a5,32
     1054:	fc440713          	addi	a4,s0,-60
@@ -1091,7 +1091,7 @@ Disassembly of section .text:
     105c:	00078513          	mv	a0,a5
     1060:	8adff0ef          	jal	90c <parse_hex>
     1064:	00050793          	mv	a5,a0
-    1068:	02079263          	bnez	a5,108c <STACK_SIZE+0x8c>
+    1068:	02079263          	bnez	a5,108c <handle_mem_command+0x4c8>
     106c:	fbc42783          	lw	a5,-68(s0)
     1070:	03078793          	addi	a5,a5,48
     1074:	fc040713          	addi	a4,s0,-64
@@ -1099,11 +1099,11 @@ Disassembly of section .text:
     107c:	00078513          	mv	a0,a5
     1080:	88dff0ef          	jal	90c <parse_hex>
     1084:	00050793          	mv	a5,a0
-    1088:	00078a63          	beqz	a5,109c <STACK_SIZE+0x9c>
+    1088:	00078a63          	beqz	a5,109c <handle_mem_command+0x4d8>
     108c:	100007b7          	lui	a5,0x10000
-    1090:	3d878513          	addi	a0,a5,984 # 100003d8 <main+0xffff0d4>
+    1090:	3d878513          	addi	a0,a5,984 # 100003d8 <STACK_TOP+0xfff83d8>
     1094:	fcdfe0ef          	jal	60 <print_str>
-    1098:	0740006f          	j	110c <STACK_SIZE+0x10c>
+    1098:	0740006f          	j	110c <handle_mem_command+0x548>
     109c:	fc042783          	lw	a5,-64(s0)
     10a0:	fef407a3          	sb	a5,-17(s0)
     10a4:	fc442783          	lw	a5,-60(s0)
@@ -1112,25 +1112,25 @@ Disassembly of section .text:
     10b0:	00078513          	mv	a0,a5
     10b4:	a80ff0ef          	jal	334 <write_mem8>
     10b8:	100007b7          	lui	a5,0x10000
-    10bc:	20478513          	addi	a0,a5,516 # 10000204 <main+0xfffef00>
+    10bc:	20478513          	addi	a0,a5,516 # 10000204 <STACK_TOP+0xfff8204>
     10c0:	fa1fe0ef          	jal	60 <print_str>
     10c4:	fc442783          	lw	a5,-60(s0)
     10c8:	00800593          	li	a1,8
     10cc:	00078513          	mv	a0,a5
     10d0:	fe5fe0ef          	jal	b4 <print_hex>
     10d4:	100007b7          	lui	a5,0x10000
-    10d8:	2b478513          	addi	a0,a5,692 # 100002b4 <main+0xfffefb0>
+    10d8:	2b478513          	addi	a0,a5,692 # 100002b4 <STACK_TOP+0xfff82b4>
     10dc:	f85fe0ef          	jal	60 <print_str>
     10e0:	fef44783          	lbu	a5,-17(s0)
     10e4:	00200593          	li	a1,2
     10e8:	00078513          	mv	a0,a5
     10ec:	fc9fe0ef          	jal	b4 <print_hex>
     10f0:	100007b7          	lui	a5,0x10000
-    10f4:	42478513          	addi	a0,a5,1060 # 10000424 <main+0xffff120>
+    10f4:	42478513          	addi	a0,a5,1060 # 10000424 <STACK_TOP+0xfff8424>
     10f8:	f69fe0ef          	jal	60 <print_str>
-    10fc:	0100006f          	j	110c <STACK_SIZE+0x10c>
+    10fc:	0100006f          	j	110c <handle_mem_command+0x548>
     1100:	100007b7          	lui	a5,0x10000
-    1104:	43c78513          	addi	a0,a5,1084 # 1000043c <main+0xffff138>
+    1104:	43c78513          	addi	a0,a5,1084 # 1000043c <STACK_TOP+0xfff843c>
     1108:	f59fe0ef          	jal	60 <print_str>
     110c:	04c12083          	lw	ra,76(sp)
     1110:	04812403          	lw	s0,72(sp)
@@ -1145,7 +1145,7 @@ Disassembly of section .text:
     112c:	fea42623          	sw	a0,-20(s0)
     1130:	fec42703          	lw	a4,-20(s0)
     1134:	100007b7          	lui	a5,0x10000
-    1138:	49078593          	addi	a1,a5,1168 # 10000490 <main+0xffff18c>
+    1138:	49078593          	addi	a1,a5,1168 # 10000490 <STACK_TOP+0xfff8490>
     113c:	00070513          	mv	a0,a4
     1140:	854ff0ef          	jal	194 <strcmp>
     1144:	00050793          	mv	a5,a0
@@ -1155,7 +1155,7 @@ Disassembly of section .text:
     1154:	0640006f          	j	11b8 <dispatch_command+0x9c>
     1158:	fec42703          	lw	a4,-20(s0)
     115c:	100007b7          	lui	a5,0x10000
-    1160:	49878593          	addi	a1,a5,1176 # 10000498 <main+0xffff194>
+    1160:	49878593          	addi	a1,a5,1176 # 10000498 <STACK_TOP+0xfff8498>
     1164:	00070513          	mv	a0,a4
     1168:	82cff0ef          	jal	194 <strcmp>
     116c:	00050793          	mv	a5,a0
@@ -1165,17 +1165,17 @@ Disassembly of section .text:
     117c:	03c0006f          	j	11b8 <dispatch_command+0x9c>
     1180:	fec42703          	lw	a4,-20(s0)
     1184:	100007b7          	lui	a5,0x10000
-    1188:	49c78593          	addi	a1,a5,1180 # 1000049c <main+0xffff198>
+    1188:	49c78593          	addi	a1,a5,1180 # 1000049c <STACK_TOP+0xfff849c>
     118c:	00070513          	mv	a0,a4
     1190:	804ff0ef          	jal	194 <strcmp>
     1194:	00050793          	mv	a5,a0
     1198:	00079a63          	bnez	a5,11ac <dispatch_command+0x90>
     119c:	100007b7          	lui	a5,0x10000
-    11a0:	4a478513          	addi	a0,a5,1188 # 100004a4 <main+0xffff1a0>
+    11a0:	4a478513          	addi	a0,a5,1188 # 100004a4 <STACK_TOP+0xfff84a4>
     11a4:	ebdfe0ef          	jal	60 <print_str>
     11a8:	0100006f          	j	11b8 <dispatch_command+0x9c>
     11ac:	100007b7          	lui	a5,0x10000
-    11b0:	50c78513          	addi	a0,a5,1292 # 1000050c <main+0xffff208>
+    11b0:	50c78513          	addi	a0,a5,1292 # 1000050c <STACK_TOP+0xfff850c>
     11b4:	eadfe0ef          	jal	60 <print_str>
     11b8:	00000013          	nop
     11bc:	01c12083          	lw	ra,28(sp)
@@ -1189,11 +1189,11 @@ Disassembly of section .text:
     11d4:	06812c23          	sw	s0,120(sp)
     11d8:	08010413          	addi	s0,sp,128
     11dc:	100007b7          	lui	a5,0x10000
-    11e0:	53078513          	addi	a0,a5,1328 # 10000530 <main+0xffff22c>
+    11e0:	53078513          	addi	a0,a5,1328 # 10000530 <STACK_TOP+0xfff8530>
     11e4:	e7dfe0ef          	jal	60 <print_str>
     11e8:	fc440713          	addi	a4,s0,-60
-    11ec:	100007b7          	lui	a5,0x10000
-    11f0:	55878613          	addi	a2,a5,1368 # 10000558 <last_cmd.0>
+    11ec:	400007b7          	lui	a5,0x40000
+    11f0:	00078613          	mv	a2,a5
     11f4:	02000593          	li	a1,32
     11f8:	00070513          	mv	a0,a4
     11fc:	9a8ff0ef          	jal	3a4 <get_str_with_history>
@@ -1201,7 +1201,7 @@ Disassembly of section .text:
     1204:	fe042423          	sw	zero,-24(s0)
     1208:	04c0006f          	j	1254 <command_handler+0x88>
     120c:	fe842783          	lw	a5,-24(s0)
-    1210:	ff078793          	addi	a5,a5,-16
+    1210:	ff078793          	addi	a5,a5,-16 # 3ffffff0 <STACK_TOP+0x3fff7ff0>
     1214:	008787b3          	add	a5,a5,s0
     1218:	fd47c703          	lbu	a4,-44(a5)
     121c:	02000793          	li	a5,32
@@ -1231,11 +1231,11 @@ Disassembly of section .text:
     127c:	ff078793          	addi	a5,a5,-16
     1280:	008787b3          	add	a5,a5,s0
     1284:	fd47c703          	lbu	a4,-44(a5)
-    1288:	100007b7          	lui	a5,0x10000
-    128c:	55878693          	addi	a3,a5,1368 # 10000558 <last_cmd.0>
+    1288:	400007b7          	lui	a5,0x40000
+    128c:	00078693          	mv	a3,a5
     1290:	fe442783          	lw	a5,-28(s0)
     1294:	00f687b3          	add	a5,a3,a5
-    1298:	00e78023          	sb	a4,0(a5)
+    1298:	00e78023          	sb	a4,0(a5) # 40000000 <last_cmd.0>
     129c:	fe442783          	lw	a5,-28(s0)
     12a0:	ff078793          	addi	a5,a5,-16
     12a4:	008787b3          	add	a5,a5,s0
@@ -1269,7 +1269,7 @@ Disassembly of section .text:
     130c:	00812423          	sw	s0,8(sp)
     1310:	01010413          	addi	s0,sp,16
     1314:	100007b7          	lui	a5,0x10000
-    1318:	53478513          	addi	a0,a5,1332 # 10000534 <main+0xffff230>
+    1318:	53478513          	addi	a0,a5,1332 # 10000534 <STACK_TOP+0xfff8534>
     131c:	d45fe0ef          	jal	60 <print_str>
     1320:	eadff0ef          	jal	11cc <command_handler>
     1324:	ffdff06f          	j	1320 <main+0x1c>
@@ -1299,7 +1299,7 @@ Disassembly of section .rodata:
 1000002a:	0078                	.insn	2, 0x0078
 1000002c:	0a0d                	.insn	2, 0x0a0d
 1000002e:	0000                	.insn	2, 0x0000
-10000030:	0074756f          	jal	a0,10047836 <_stack_top+0x45836>
+10000030:	0074756f          	jal	a0,10047836 <STACK_TOP+0x1003f836>
 10000034:	0a0d                	.insn	2, 0x0a0d
 10000036:	7245                	.insn	2, 0x7245
 10000038:	6f72                	.insn	2, 0x6f72
@@ -1362,7 +1362,7 @@ Disassembly of section .rodata:
 100000ba:	4f20                	.insn	2, 0x4f20
 100000bc:	5455                	.insn	2, 0x5455
 100000be:	7420                	.insn	2, 0x7420
-100000c0:	7830206f          	j	10003042 <_stack_top+0x1042>
+100000c0:	7830206f          	j	10003042 <STACK_TOP+0xfffb042>
 100000c4:	0000                	.insn	2, 0x0000
 100000c6:	0000                	.insn	2, 0x0000
 100000c8:	0a0d                	.insn	2, 0x0a0d
@@ -1387,7 +1387,7 @@ Disassembly of section .rodata:
 100000f0:	6f6e                	.insn	2, 0x6f6e
 100000f2:	73206e77          	.insn	4, 0x73206e77
 100000f6:	6275                	.insn	2, 0x6275
-100000f8:	2e646d63          	bltu	s0,t1,100003f2 <main+0xffff0ee>
+100000f8:	2e646d63          	bltu	s0,t1,100003f2 <STACK_TOP+0xfff83f2>
 100000fc:	5520                	.insn	2, 0x5520
 100000fe:	65676173          	csrrsi	sp,hviprio1h,14
 10000102:	203a                	.insn	2, 0x203a
@@ -1528,7 +1528,7 @@ Disassembly of section .rodata:
 10000226:	3a72                	.insn	2, 0x3a72
 10000228:	6920                	.insn	2, 0x6920
 1000022a:	636e                	.insn	2, 0x636e
-1000022c:	6c706d6f          	jal	s10,100070f2 <_stack_top+0x50f2>
+1000022c:	6c706d6f          	jal	s10,100070f2 <STACK_TOP+0xffff0f2>
 10000230:	7465                	.insn	2, 0x7465
 10000232:	2065                	.insn	2, 0x2065
 10000234:	7261                	.insn	2, 0x7261
@@ -1599,7 +1599,7 @@ Disassembly of section .rodata:
 100002c6:	6972                	.insn	2, 0x6972
 100002c8:	6574                	.insn	2, 0x6574
 100002ca:	64203233          	.insn	4, 0x64203233
-100002ce:	21656e6f          	jal	t3,100564e4 <_stack_top+0x544e4>
+100002ce:	21656e6f          	jal	t3,100564e4 <STACK_TOP+0x1004e4e4>
 100002d2:	0a0d                	.insn	2, 0x0a0d
 100002d4:	0000                	.insn	2, 0x0000
 100002d6:	0000                	.insn	2, 0x0000
@@ -1612,7 +1612,7 @@ Disassembly of section .rodata:
 100002e6:	3a72                	.insn	2, 0x3a72
 100002e8:	6920                	.insn	2, 0x6920
 100002ea:	636e                	.insn	2, 0x636e
-100002ec:	6c706d6f          	jal	s10,100071b2 <_stack_top+0x51b2>
+100002ec:	6c706d6f          	jal	s10,100071b2 <STACK_TOP+0xffff1b2>
 100002f0:	7465                	.insn	2, 0x7465
 100002f2:	2065                	.insn	2, 0x2065
 100002f4:	7261                	.insn	2, 0x7261
@@ -1680,7 +1680,7 @@ Disassembly of section .rodata:
 1000037c:	6574                	.insn	2, 0x6574
 1000037e:	3631                	.insn	2, 0x3631
 10000380:	6420                	.insn	2, 0x6420
-10000382:	21656e6f          	jal	t3,10056598 <_stack_top+0x54598>
+10000382:	21656e6f          	jal	t3,10056598 <STACK_TOP+0x1004e598>
 10000386:	0a0d                	.insn	2, 0x0a0d
 10000388:	0000                	.insn	2, 0x0000
 1000038a:	0000                	.insn	2, 0x0000
@@ -1693,7 +1693,7 @@ Disassembly of section .rodata:
 1000039a:	3a72                	.insn	2, 0x3a72
 1000039c:	6920                	.insn	2, 0x6920
 1000039e:	636e                	.insn	2, 0x636e
-100003a0:	6c706d6f          	jal	s10,10007266 <_stack_top+0x5266>
+100003a0:	6c706d6f          	jal	s10,10007266 <STACK_TOP+0xffff266>
 100003a4:	7465                	.insn	2, 0x7465
 100003a6:	2065                	.insn	2, 0x2065
 100003a8:	7261                	.insn	2, 0x7261
@@ -1773,7 +1773,7 @@ Disassembly of section .rodata:
 10000448:	6f6e                	.insn	2, 0x6f6e
 1000044a:	73206e77          	.insn	4, 0x73206e77
 1000044e:	6275                	.insn	2, 0x6275
-10000450:	2e646d63          	bltu	s0,t1,1000074a <_end+0x1d2>
+10000450:	2e646d63          	bltu	s0,t1,1000074a <STACK_TOP+0xfff874a>
 10000454:	5520                	.insn	2, 0x5520
 10000456:	65676173          	csrrsi	sp,hviprio1h,14
 1000045a:	0d3a                	.insn	2, 0x0d3a
@@ -1809,7 +1809,7 @@ Disassembly of section .rodata:
 100004a2:	0000                	.insn	2, 0x0000
 100004a4:	0a0d                	.insn	2, 0x0a0d
 100004a6:	70707553          	.insn	4, 0x70707553
-100004aa:	6574726f          	jal	tp,10048300 <_stack_top+0x46300>
+100004aa:	6574726f          	jal	tp,10048300 <STACK_TOP+0x10040300>
 100004ae:	2064                	.insn	2, 0x2064
 100004b0:	6d6d6f43          	.insn	4, 0x6d6d6f43
 100004b4:	6e61                	.insn	2, 0x6e61
@@ -1851,7 +1851,7 @@ Disassembly of section .rodata:
 1000050e:	6e55                	.insn	2, 0x6e55
 10000510:	776f6e6b          	.insn	4, 0x776f6e6b
 10000514:	206e                	.insn	2, 0x206e
-10000516:	6d6d6f63          	bltu	s10,s6,10000bf4 <_end+0x67c>
+10000516:	6d6d6f63          	bltu	s10,s6,10000bf4 <STACK_TOP+0xfff8bf4>
 1000051a:	6e61                	.insn	2, 0x6e61
 1000051c:	2e64                	.insn	2, 0x2e64
 1000051e:	5420                	.insn	2, 0x5420
@@ -1865,15 +1865,15 @@ Disassembly of section .rodata:
 10000530:	203e                	.insn	2, 0x203e
 10000532:	0000                	.insn	2, 0x0000
 10000534:	636c6557          	.insn	4, 0x636c6557
-10000538:	20656d6f          	jal	s10,1005673e <_stack_top+0x5473e>
+10000538:	20656d6f          	jal	s10,1005673e <STACK_TOP+0x1004e73e>
 1000053c:	6f74                	.insn	2, 0x6f74
 1000053e:	5020                	.insn	2, 0x5020
 10000540:	5361                	.insn	2, 0x5361
-10000542:	4220436f          	jal	t1,10004964 <_stack_top+0x2964>
+10000542:	4220436f          	jal	t1,10004964 <STACK_TOP+0xfffc964>
 10000546:	4f49                	.insn	2, 0x4f49
 10000548:	6f632053          	.insn	4, 0x6f632053
 1000054c:	736e                	.insn	2, 0x736e
-1000054e:	21656c6f          	jal	s8,10056764 <_stack_top+0x54764>
+1000054e:	21656c6f          	jal	s8,10056764 <STACK_TOP+0x1004e764>
 10000552:	0a0d                	.insn	2, 0x0a0d
 	...
 

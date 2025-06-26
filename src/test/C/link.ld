@@ -16,7 +16,7 @@ SECTIONS
         *(.text .text.*)  /* 所有其他代码段 */
     } > INSTR
 
-    /* ---- 数据部分 ---- */
+    /* ---- 数据BRAM部分 ---- */
     . = ORIGIN(DATA);
     /* 只读数据段 */
     .rodata : {
@@ -28,17 +28,28 @@ SECTIONS
         *(.data .data.*)
     } > DATA
 
-    /* 未初始化变量段 */
-    .bss : {
+    /* ---- 数据SDRAM部分 ---- */
+    . = ORIGIN(SDRAM);
+    .bss (NOLOAD) : {
         *(.bss .bss.*)
         *(COMMON)
-    } > DATA
+    } > SDRAM
 
     _end = .;  /* 堆起始 */
-    STACK_SIZE = 4K;  /* 可以自己调节需要多少栈 */
+    STACK_SIZE = 16K;  /* 需要多少栈 */
+    /* 堆栈使用 DTCM */
+    /*
     . = ORIGIN(DATA) + LENGTH(DATA) - STACK_SIZE;
     _stack_limit = .;
     . = ORIGIN(DATA) + LENGTH(DATA);
+    */
+    /* 堆栈使用 SDRAM */
+    
+    STACK_TOP  = 32K;
+    . = ORIGIN(SDRAM) + STACK_TOP - STACK_SIZE;
+    _stack_limit = .;
+    . = ORIGIN(SDRAM) + STACK_TOP;
+    
     PROVIDE(_stack_top = .);
     PROVIDE(_sp = .);
 }

@@ -75,17 +75,17 @@ case $TestType in
         Set-EnvAndRun 'sbt run'
         ;;
     "hex")
-        rm -f test_run_dir/Hex_Test_should_pass/PaSoCSim.*
+        rm -f test_run_dir/Hex_Test_should_pass/PaSoCsim.*
         clear
         Set-EnvAndRun 'sbt "testOnly PaSoC.HexTest"'
         ;;
     "gpio")
-        rm -f test_run_dir/GPIO_Test_should_pass/PaSoCSim.*
+        rm -f test_run_dir/GPIO_Test_should_pass/PaSoCsim.*
         clear
         Set-EnvAndRun 'sbt "testOnly PaSoC.GpioTest"'
         ;;
     "uart")
-        rm -f test_run_dir/Uart_Test_should_pass/PaSoCSim.*
+        rm -f test_run_dir/Uart_Test_should_pass/PaSoCsim.*
         clear
         Set-EnvAndRun 'sbt "testOnly PaSoC.UartTest"'
         ;;

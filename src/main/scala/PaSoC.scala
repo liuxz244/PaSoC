@@ -9,7 +9,7 @@ import _root_.circt.stage.ChiselStage  // 生成systemverilog
 import sys.process._   // 使用linux命令
 
 
-class PaSoC(initHex: String) extends Module {
+class PaSoC(initHex: String, with_cache: Boolean = false) extends Module {
     val io = IO(new Bundle {
         //val inst_rx = Input(Bool())
         val gpio    = new GPIOPortIO()
@@ -17,7 +17,7 @@ class PaSoC(initHex: String) extends Module {
         val uart_tx = Output(Bool())
         val uart_rx = Input( Bool())
         val irq     = Input(UInt(7.W))
-        val sdram  = new Sdr32bit8mIO
+        val sdram   = new Sdr32bit8mIO
     })
 
     val core  = Module(new PasoRV())
@@ -39,7 +39,6 @@ class PaSoC(initHex: String) extends Module {
     dmem.io.bus  <> dbus.io.devs(1)
     pwm.io.bus   <> dbus.io.devs(2)
     uart.io.bus  <> dbus.io.devs(3)
-    sdram.io.bus <> dbus.io.devs(4)
     plic.io.bus  <> dbus.io.devs(5)
     clint.io.bus <> dbus.io.devs(6)
     
@@ -51,6 +50,14 @@ class PaSoC(initHex: String) extends Module {
     uart.io.rx     <> io.uart_rx
     sdram.io.sdram <> io.sdram
     
+    if(with_cache) {
+        val cache = Module(new SimpleCache())
+        cache.io.cpu <> dbus.io.devs(4)
+        cache.io.mem <> sdram.io.bus
+    } else {
+        dbus.io.devs(4) <> sdram.io.bus
+    }
+
     uart.io.rx_flag := false.B
     uart.io.rx_data := 0.U
 
@@ -63,7 +70,7 @@ class PaSoC(initHex: String) extends Module {
 }
 
 
-class PaSoCSim(initHex: String) extends Module {
+class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     val io = IO(new Bundle {
         //val inst_rx = Input(Bool())
         val gpio    = new GPIOPortIO()
@@ -95,7 +102,6 @@ class PaSoCSim(initHex: String) extends Module {
     dmem.io.bus  <> dbus.io.devs(1)
     pwm.io.bus   <> dbus.io.devs(2)
     uart.io.bus  <> dbus.io.devs(3)
-    dram.io.bus  <> dbus.io.devs(4)
     plic.io.bus  <> dbus.io.devs(5)
     clint.io.bus <> dbus.io.devs(6)
     
@@ -105,6 +111,14 @@ class PaSoCSim(initHex: String) extends Module {
     pwm.io.pwm     <> io.pwm
     uart.io.tx     <> io.uart_tx
     uart.io.rx     <> io.uart_rx
+
+    if(with_cache) {
+        val cache = Module(new SimpleCache())
+        cache.io.cpu <> dbus.io.devs(4)
+        cache.io.mem <> dram.io.bus
+    } else {
+        dbus.io.devs(4) <> dram.io.bus
+    }
 
     uart.io.rx_flag := io.rx_flag
     uart.io.rx_data := io.rx_data

@@ -18,7 +18,7 @@ object UartTestUtils {
         val bits = Seq(0) ++ (0 until 8).map(i => ((byte >> i) & 1)) ++ Seq(1)
         def pokeRx(bit: Int): Unit = c match {
             case u: UartCtrl => u.io.rx.poke(bit.B)
-            case p: PaSoCSim => p.io.uart_rx.poke(bit.B)
+            case p: PaSoCsim => p.io.uart_rx.poke(bit.B)
             case _           => throw new Exception("Unknown UART module!")
         }
         for (bit <- bits) {
@@ -29,7 +29,7 @@ object UartTestUtils {
         c.clock.step(baudPeriod)
     }
 
-    def sendString(dut: PaSoCSim, str: String): Int = {
+    def sendString(dut: PaSoCsim, str: String): Int = {
         var localStep = 0
         for(ch <- str) {
             dut.io.rx_flag.poke(true.B)

@@ -1,0 +1,92 @@
+
+/tmp/tmp.lyXw97qa8H/ctest.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <_start>:
+   0:	10002117          	auipc	sp,0x10002
+   4:	00010113          	mv	sp,sp
+   8:	300002b7          	lui	t0,0x30000
+   c:	00028023          	sb	zero,0(t0) # 30000000 <_stack_top+0x1fffe000>
+  10:	018000ef          	jal	28 <main>
+  14:	01400293          	li	t0,20
+  18:	fff28293          	addi	t0,t0,-1
+  1c:	fe029ee3          	bnez	t0,18 <_start+0x18>
+  20:	c0001073          	unimp
+  24:	0000006f          	j	24 <_start+0x24>
+
+00000028 <main>:
+  28:	fe010113          	addi	sp,sp,-32 # 10001fe0 <_stack_limit+0x3fe0>
+  2c:	00112e23          	sw	ra,28(sp)
+  30:	00812c23          	sw	s0,24(sp)
+  34:	02010413          	addi	s0,sp,32
+  38:	00100793          	li	a5,1
+  3c:	fef42623          	sw	a5,-20(s0)
+  40:	00200793          	li	a5,2
+  44:	fef42423          	sw	a5,-24(s0)
+  48:	fec42703          	lw	a4,-20(s0)
+  4c:	fe842783          	lw	a5,-24(s0)
+  50:	00f707b3          	add	a5,a4,a5
+  54:	fef42223          	sw	a5,-28(s0)
+  58:	fe442703          	lw	a4,-28(s0)
+  5c:	00100793          	li	a5,1
+  60:	00f71a63          	bne	a4,a5,74 <main+0x4c>
+  64:	fe442783          	lw	a5,-28(s0)
+  68:	00178793          	addi	a5,a5,1
+  6c:	fef42223          	sw	a5,-28(s0)
+  70:	0100006f          	j	80 <main+0x58>
+  74:	fe442783          	lw	a5,-28(s0)
+  78:	00278793          	addi	a5,a5,2
+  7c:	fef42223          	sw	a5,-28(s0)
+  80:	c0001073          	unimp
+  84:	00000793          	li	a5,0
+  88:	00078513          	mv	a0,a5
+  8c:	01c12083          	lw	ra,28(sp)
+  90:	01812403          	lw	s0,24(sp)
+  94:	02010113          	addi	sp,sp,32
+  98:	00008067          	ret
+
+Disassembly of section .riscv.attributes:
+
+00000000 <.riscv.attributes>:
+   0:	3641                	.insn	2, 0x3641
+   2:	0000                	.insn	2, 0x0000
+   4:	7200                	.insn	2, 0x7200
+   6:	7369                	.insn	2, 0x7369
+   8:	01007663          	bgeu	zero,a6,14 <_start+0x14>
+   c:	002c                	.insn	2, 0x002c
+   e:	0000                	.insn	2, 0x0000
+  10:	1004                	.insn	2, 0x1004
+  12:	7205                	.insn	2, 0x7205
+  14:	3376                	.insn	2, 0x3376
+  16:	6932                	.insn	2, 0x6932
+  18:	7032                	.insn	2, 0x7032
+  1a:	5f31                	.insn	2, 0x5f31
+  1c:	326d                	.insn	2, 0x326d
+  1e:	3070                	.insn	2, 0x3070
+  20:	7a5f 6369 7273      	.insn	6, 0x727363697a5f
+  26:	7032                	.insn	2, 0x7032
+  28:	5f30                	.insn	2, 0x5f30
+  2a:	6d7a                	.insn	2, 0x6d7a
+  2c:	756d                	.insn	2, 0x756d
+  2e:	316c                	.insn	2, 0x316c
+  30:	3070                	.insn	2, 0x3070
+  32:	0800                	.insn	2, 0x0800
+  34:	0a01                	.insn	2, 0x0a01
+  36:	0b                	.byte	0x0b
+
+Disassembly of section .comment:
+
+00000000 <.comment>:
+   0:	3a434347          	.insn	4, 0x3a434347
+   4:	2820                	.insn	2, 0x2820
+   6:	33623167          	.insn	4, 0x33623167
+   a:	3630                	.insn	2, 0x3630
+   c:	3330                	.insn	2, 0x3330
+   e:	6139                	.insn	2, 0x6139
+  10:	20293463          	.insn	4, 0x20293463
+  14:	3531                	.insn	2, 0x3531
+  16:	312e                	.insn	2, 0x312e
+  18:	302e                	.insn	2, 0x302e
+	...

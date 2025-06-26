@@ -1,7 +1,6 @@
 	.file	"ctest.c"
 	.option nopic
-	.option checkconstraints
-	.attribute arch, "rv32i2p0"
+	.attribute arch, "rv32i2p1_m2p0_zicsr2p0_zmmul1p0"
 	.attribute unaligned_access, 0
 	.attribute stack_align, 16
 	.text
@@ -10,7 +9,8 @@
 	.type	main, @function
 main:
 	addi	sp,sp,-32
-	sw	s0,28(sp)
+	sw	ra,28(sp)
+	sw	s0,24(sp)
 	addi	s0,sp,32
 	li	a5,1
 	sw	a5,-20(s0)
@@ -33,14 +33,16 @@ main:
 	sw	a5,-28(s0)
 .L3:
  #APP
-# 16 "ctest.c" 1
+# 16 "src/test/C/ctest.c" 1
 	unimp
 # 0 "" 2
  #NO_APP
 	li	a5,0
 	mv	a0,a5
-	lw	s0,28(sp)
+	lw	ra,28(sp)
+	lw	s0,24(sp)
 	addi	sp,sp,32
 	jr	ra
 	.size	main, .-main
-	.ident	"GCC: (GNU) 9.2.0"
+	.ident	"GCC: (g1b306039ac4) 15.1.0"
+	.section	.note.GNU-stack,"",@progbits

@@ -85,7 +85,7 @@ class PasoRV extends Module {
     val ext_irq = ext_irq_pending && ext_irq_enable && (mstatus(MIE) === 1.U)
 
     // 优先级，定时器高于外部
-    val irq_pending = timer_irq || ext_irq
+    val irq_pending    = timer_irq || ext_irq
     val take_timer_irq = timer_irq
     val take_ext_irq   = (!timer_irq) && ext_irq
 
@@ -155,8 +155,8 @@ class PasoRV extends Module {
     val id_rs2_addr_b = id_reg_inst(24, 20)
 
     // EX阶段有写后读时需要暂停
-    val id_rs1_data_hazard = (exe_reg_rf_wen === REN_S) && (id_rs1_addr_b =/= 0.U) && (id_rs1_addr_b === exe_reg_wb_addr)
-    val id_rs2_data_hazard = (exe_reg_rf_wen === REN_S) && (id_rs2_addr_b =/= 0.U) && (id_rs2_addr_b === exe_reg_wb_addr)
+    val id_rs1_data_hazard = (exe_reg_rf_wen === REN_S) && (id_rs1_addr_b =/= 0.U) && (id_rs1_addr_b === exe_reg_wb_addr)// || id_rs1_addr_b === mem_reg_wb_addr || id_rs1_addr_b === wb_reg_wb_addr)
+    val id_rs2_data_hazard = (exe_reg_rf_wen === REN_S) && (id_rs2_addr_b =/= 0.U) && (id_rs2_addr_b === exe_reg_wb_addr)// || id_rs2_addr_b === mem_reg_wb_addr || id_rs2_addr_b === wb_reg_wb_addr)
     stall_hazard := (id_rs1_data_hazard || id_rs2_data_hazard)
 
     // 分支/跳转时清空旧指令
@@ -273,7 +273,7 @@ class PasoRV extends Module {
 
     // ID/EX register
     when(!(stall_bus || stall_alu)) {
-        exe_reg_pc      := Mux(pc_redirect, exe_reg_pc, id_reg_pc)
+        exe_reg_pc         := Mux(pc_redirect, exe_reg_pc, id_reg_pc)
         exe_reg_inst       := id_inst
         exe_reg_op1_data   := id_op1_data
         exe_reg_op2_data   := id_op2_data
@@ -287,7 +287,7 @@ class PasoRV extends Module {
         exe_reg_imm_b_sext := id_imm_b_sext
         exe_reg_mem_wen    := id_mem_wen
         exe_reg_mem_width  := id_mem_width
-        exe_reg_pred_br := Mux(stall_flg, exe_reg_pred_br, id_reg_pred_br)
+        exe_reg_pred_br    := Mux(stall_flg, exe_reg_pred_br, id_reg_pred_br)
     }
 
 
@@ -345,7 +345,7 @@ class PasoRV extends Module {
     pred_posfail := exe_reg_pred_br && !exe_br_flg && exe_is_branch
     exe_br_tag := exe_reg_pc + exe_reg_imm_b_sext
 
-    exe_jmp_flg := (exe_reg_wb_sel === WB_PC)
+    exe_jmp_flg := (exe_reg_wb_sel === WB_PC) && !stall_bus
 
     bht.io.update := exe_is_branch && !stall_flg  // 根据实际情况更新分支历史
     bht.io.update_pc := exe_reg_pc;  bht.io.update_taken := exe_br_flg
