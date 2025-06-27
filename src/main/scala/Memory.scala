@@ -154,7 +154,8 @@ class ITCM(val depth: Int, val initHex: String) extends Module {
 // 同步读数据存储器，可综合为BRAM，支持字节/半字写入
 class DTCM(val depth: Int, initHex: String) extends Module {
     val io = IO(new Bundle {
-        val bus = new DBusPortIO()
+        val bus   = new DBusPortIO()
+        val addrb = Input(UInt(WORD_LEN.W))
     })
 
     val mem = SyncReadMem(depth, UInt(32.W))  // 定义BRAM存储器
@@ -165,7 +166,7 @@ class DTCM(val depth: Int, initHex: String) extends Module {
 
     // 地址按字对齐（4字节对齐），去掉低2位，取有效的地址宽度
     val daddrb = Wire(UInt(addrWidth.W))
-    daddrb := io.bus.addrb(addrWidth + 1, 2)
+    daddrb := io.addrb(addrWidth + 1, 2)
     val daddr = Wire(UInt(addrWidth.W))
     daddr := io.bus.addr(addrWidth + 1, 2)
 
@@ -474,7 +475,6 @@ class SimpleCache(
 
     io.mem.valid := false.B
     io.mem.addr  := addr_s2
-    io.mem.addrb := io.cpu.addrb
     io.mem.wen   := wen_s2
     io.mem.ben   := ben_s2
     io.mem.wdata := wdata_s2
@@ -488,9 +488,7 @@ class SimpleCache(
             // 写操作（写直达，写透）
             io.mem.valid := true.B
             io.mem.wen   := true.B
-
             io.cpu.ready := io.mem.ready
-
             // 写cache（只有写命中才同时写）
             when(hit_s2) {
                 val newWord = Wire(UInt(WORD_LEN.W))
@@ -542,7 +540,7 @@ class SimDRAM(depth: Int) extends Module {
 
     // 记录最后一次请求的相关信息与计数
     val doing   = RegInit(false.B)
-    val cnt     = RegInit(0.U(3.W))
+    val cnt     = RegInit(0.U(2.W))
     val wenReg  = Reg(Bool())
     val addrReg = Reg(UInt(log2Ceil(depth).W))
     val wdataReg= Reg(UInt(WORD_LEN.W))

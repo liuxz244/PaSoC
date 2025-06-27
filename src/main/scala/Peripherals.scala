@@ -24,7 +24,6 @@ class DBusMux(val nDevices: Int = 4) extends Module {
     for (i <- 0 until nDevices) {
         io.devs(i).valid := false.B
         io.devs(i).wen   := false.B
-        io.devs(i).addrb := 0.U
         io.devs(i).addr  := 0.U
         io.devs(i).wdata := 0.U
         io.devs(i).ben   := 0.U
@@ -50,11 +49,6 @@ class DBusMux(val nDevices: Int = 4) extends Module {
                 io.bus.ready     := io.devs(i).ready
             }
         }
-    }
-
-    // 所有设备都要接收提前发出的地址
-    for (i <- 0 until nDevices) {
-        io.devs(i).addrb := io.bus.addrb
     }
 }
 

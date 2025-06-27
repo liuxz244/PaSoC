@@ -41,7 +41,12 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
     uart.io.bus  <> dbus.io.devs(3)
     plic.io.bus  <> dbus.io.devs(5)
     clint.io.bus <> dbus.io.devs(6)
-    
+
+    dmem.io.addrb  := core.io.addrb  // 对BRAM需要在提前发出地址
+    plic.io.irq_in := Cat(gpio.io.irq, io.irq)  // PLIC中断源输入
+    core.io.clint  := clint.io.irq   // 连接定时器中断
+    core.io.plic   := plic.io.irq_out  // 连接外部中断
+
     // 外设输入输出
     //imem.io.rx   <> io.inst_rx
     gpio.io.gpio   <> io.gpio
@@ -61,12 +66,6 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
     uart.io.rx_flag := false.B
     uart.io.rx_data := 0.U
 
-    // PLIC中断源输入
-    plic.io.irq_in := Cat(gpio.io.irq, io.irq)  
-    
-    core.io.clint := clint.io.irq   // 连接定时器中断
-    core.io.plic  := plic.io.irq_out  // 连接外部中断
-    
 }
 
 
@@ -105,6 +104,11 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     plic.io.bus  <> dbus.io.devs(5)
     clint.io.bus <> dbus.io.devs(6)
     
+    dmem.io.addrb  := core.io.addrb  // 对BRAM需要在提前发出地址
+    plic.io.irq_in := Cat(gpio.io.irq, io.irq)  // PLIC中断源输入
+    core.io.clint := clint.io.irq    // 连接定时器中断
+    core.io.plic  := plic.io.irq_out  // 连接外部中断
+
     // 外设输入输出
     //imem.io.rx   <> io.inst_rx
     gpio.io.gpio   <> io.gpio
@@ -123,14 +127,7 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     uart.io.rx_flag := io.rx_flag
     uart.io.rx_data := io.rx_data
     
-    // PLIC中断源输入
-    plic.io.irq_in := Cat(gpio.io.irq, io.irq)  
-    
-    core.io.clint := clint.io.irq   // 连接定时器中断
-    core.io.plic  := plic.io.irq_out  // 连接外部中断
-
     io.exit := core.io.exit  // 程序结束标志
-    
 }
 
 

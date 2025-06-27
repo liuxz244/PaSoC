@@ -11,6 +11,7 @@ class PasoRV extends Module {
     val io = IO(new Bundle {
         val ibus  = Flipped(new IBusPortIO())
         val dbus  = Flipped(new DBusPortIO())
+        val addrb = Output(UInt(WORD_LEN.W))  // 在EX阶段提前发出的地址
         val plic  = Input( Bool())  // 外部中断
         val clint = Input( Bool())  // 定时器中断
         val exit  = Output(Bool())
@@ -351,7 +352,7 @@ class PasoRV extends Module {
     bht.io.update_pc := exe_reg_pc;  bht.io.update_taken := exe_br_flg
 
     // 由于BRAM的读取有一周期延迟，需要提前发出地址
-    io.dbus.addrb := exe_alu_out
+    io.addrb := exe_alu_out
 
     // EX/MEM register
     when (!(stall_bus || stall_alu)) {
