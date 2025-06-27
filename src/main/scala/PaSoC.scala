@@ -9,7 +9,7 @@ import _root_.circt.stage.ChiselStage  // 生成systemverilog
 import sys.process._   // 使用linux命令
 
 
-class PaSoC(initHex: String, with_cache: Boolean = false) extends Module {
+class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
     val io = IO(new Bundle {
         //val inst_rx = Input(Bool())
         val gpio    = new GPIOPortIO()

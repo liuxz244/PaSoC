@@ -15,7 +15,7 @@ class HexTest extends AnyFlatSpec with ChiselScalatestTester {
         test(new PaSoCsim(hexFile)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             dut.clock.setTimeout(0)  // 关闭Chisel原本的超时机制
             var stepCount = 0
-            val maxCycles = 3500
+            val maxCycles = 3000
             // 当exit不为1且未超出最大步数时循环
             while(!dut.io.exit.peek().litToBoolean && stepCount < maxCycles) {
                 dut.clock.step(1)  // 给一个时钟脉冲

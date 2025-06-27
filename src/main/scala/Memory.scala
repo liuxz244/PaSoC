@@ -326,7 +326,7 @@ class SdrEmbed8M extends Module {
     }
 }
 
-
+/*
 class SimpleCache(
     val LINE_SIZE:  Int = 16,
     val LINE_BTYES: Int = 4
@@ -346,10 +346,9 @@ class SimpleCache(
     val data  = Reg(Vec(LINE_SIZE, UInt(WORD_LEN.W)))
 
     // 地址分解
-    val addr    = io.cpu.addr
-    val idx     = addr(log2Ceil(LINE_BTYES) + IDX_BITS - 1, log2Ceil(LINE_BTYES))
-    val tag     = addr(31, log2Ceil(LINE_BTYES) + IDX_BITS)
-    val offset  = addr(log2Ceil(LINE_BTYES) - 1, 0)   // 本例只支持LINE_BTYES=4
+    val addr = io.cpu.addr
+    val idx  = addr(log2Ceil(LINE_BTYES) + IDX_BITS - 1, log2Ceil(LINE_BTYES))
+    val tag  = addr(31, log2Ceil(LINE_BTYES) + IDX_BITS)
 
     // 命中判断
     val hit = valid(idx) && (tags(idx) === tag)
@@ -421,6 +420,115 @@ class SimpleCache(
         }
     }
 }
+*/
+
+class SimpleCache(
+    val LINE_SIZE:  Int = 16,
+    val LINE_BTYES: Int = 4
+) extends Module {
+    val io = IO(new Bundle {
+        val cpu = new DBusPortIO()
+        val mem = Flipped(new DBusPortIO())
+    })
+
+    // 计算参数
+    val IDX_BITS = log2Ceil(LINE_SIZE)
+    val TAG_BITS = 32 - log2Ceil(LINE_BTYES) - IDX_BITS
+
+    // Cache行和标签
+    val valid = RegInit(VecInit(Seq.fill(LINE_SIZE)(false.B)))
+    val tags  = Reg(Vec(LINE_SIZE, UInt(TAG_BITS.W)))
+    val data  = Reg(Vec(LINE_SIZE, UInt(WORD_LEN.W)))
+
+    // stage1: 解码并采样
+    val s1_valid = io.cpu.valid
+
+    val addr_s1 = io.cpu.addr
+    val idx_s1  = addr_s1(log2Ceil(LINE_BTYES) + IDX_BITS - 1, log2Ceil(LINE_BTYES))
+    val tag_s1  = addr_s1(31, log2Ceil(LINE_BTYES) + IDX_BITS)
+    val wen_s1  = io.cpu.wen
+    val ben_s1  = io.cpu.ben
+    val wdata_s1 = io.cpu.wdata
+
+    val hit_s1 = valid(idx_s1) && (tags(idx_s1) === tag_s1)
+    val data_s1 = data(idx_s1)
+    val tags_s1 = tags(idx_s1)
+
+    // ---- pipeline寄存器 ----
+    val s1_fire = s1_valid // 控制信号，可以后续拓展
+    
+    val s2_valid = RegNext(s1_fire, false.B)
+    val idx_s2   = RegNext(idx_s1)
+    val tag_s2   = RegNext(tag_s1)
+    val wen_s2   = RegNext(wen_s1)
+    val ben_s2   = RegNext(ben_s1)
+    val wdata_s2 = RegNext(wdata_s1)
+    val hit_s2   = RegNext(hit_s1)
+    val data_s2  = RegNext(data_s1)
+    val tags_s2  = RegNext(tags_s1)
+    val addr_s2  = RegNext(addr_s1)
+    // 这里只采样一次，不用对mem端再寄存
+
+    io.cpu.rdata   := 0.U
+    io.cpu.ready   := false.B
+
+    io.mem.valid := false.B
+    io.mem.addr  := addr_s2
+    io.mem.addrb := io.cpu.addrb
+    io.mem.wen   := wen_s2
+    io.mem.ben   := ben_s2
+    io.mem.wdata := wdata_s2
+
+    val s2_done = RegNext(io.mem.ready, false.B)  // mem.ready拉高后结束mem.valid
+    val rh_done = RegInit(false.B)  // 使读命中时的cpu.ready只拉高一拍
+    rh_done := false.B  // 默认值
+    // ----- stage2: 正常cache控制 -----
+    when(s2_valid && !s2_done && !rh_done) {
+        when(wen_s2) {
+            // 写操作（写直达，写透）
+            io.mem.valid := true.B
+            io.mem.wen   := true.B
+
+            io.cpu.ready := io.mem.ready
+
+            // 写cache（只有写命中才同时写）
+            when(hit_s2) {
+                val newWord = Wire(UInt(WORD_LEN.W))
+                val wmask = Wire(Vec(4, Bool()))
+                for(i <- 0 until 4) {
+                    wmask(i) := ben_s2(i)
+                }
+                newWord :=
+                    Cat(
+                        Mux(wmask(3), wdata_s2(31,24), data_s2(31,24)),
+                        Mux(wmask(2), wdata_s2(23,16), data_s2(23,16)),
+                        Mux(wmask(1), wdata_s2(15,8),  data_s2(15,8)),
+                        Mux(wmask(0), wdata_s2(7,0),   data_s2(7,0))
+                    )
+                data(idx_s2) := newWord
+            }
+        } .otherwise {
+            // 读操作
+            when(hit_s2) {
+                io.cpu.rdata := data_s2
+                io.cpu.ready := true.B
+                rh_done := true.B
+            } .otherwise {
+                // miss发起访存
+                io.mem.valid := true.B
+                io.mem.wen   := false.B
+                io.cpu.ready := io.mem.ready
+                io.cpu.rdata := io.mem.rdata
+                // miss返回后写入cache
+                when(io.mem.ready) {
+                    valid(idx_s2) := true.B
+                    tags(idx_s2)  := tag_s2
+                    data(idx_s2)  := io.mem.rdata
+                }
+            }
+        }
+    }
+}
 
 
 // 仿真用有延迟ram
@@ -434,7 +542,7 @@ class SimDRAM(depth: Int) extends Module {
 
     // 记录最后一次请求的相关信息与计数
     val doing   = RegInit(false.B)
-    val cnt     = RegInit(0.U(2.W))
+    val cnt     = RegInit(0.U(3.W))
     val wenReg  = Reg(Bool())
     val addrReg = Reg(UInt(log2Ceil(depth).W))
     val wdataReg= Reg(UInt(WORD_LEN.W))
@@ -458,7 +566,7 @@ class SimDRAM(depth: Int) extends Module {
     }
     when(doing) {
         cnt := cnt + 1.U
-        when(cnt === 3.U) {      // 四周期延迟完成
+        when(cnt === 3.U) {  // 四周期延迟完成
             doing := false.B
             io.bus.ready := true.B
             when(wenReg) {

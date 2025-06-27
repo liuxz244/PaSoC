@@ -195,7 +195,7 @@ class BHT(val tableSize: Int = 64) extends Module {
 
     // 2位饱和计数器的 bht 表项，初始值一般为 2 (Weakly Taken) 或 0 (Strongly Not Taken)
     val bhtTable = Mem(tableSize, UInt(2.W))
-    loadMemoryFromFileInline(bhtTable, "src/test/hex/bht.hex")  // 初始化BHT
+    //loadMemoryFromFileInline(bhtTable, "src/test/hex/bht.hex")  // 初始化BHT
 
     val query_idx = io.query_pc(idxWidth+1, 2)
     val bhtTable_read = bhtTable.read(query_idx)
