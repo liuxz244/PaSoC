@@ -328,8 +328,8 @@ class SdrEmbed8M extends Module {
 
 
 class SimpleCache(
-    val LINE_SIZE:  Int = 16, // 行数
-    val LINE_BYTES: Int = 4   // 每行4字节
+    val LINE_SIZE:  Int = 16,
+    val LINE_BTYES: Int = 4
 ) extends Module {
     val io = IO(new Bundle {
         val cpu = new DBusPortIO()
@@ -337,111 +337,86 @@ class SimpleCache(
     })
 
     // 计算参数
-    val IDX_BITS  = log2Ceil(LINE_SIZE)
-    val TAG_BITS  = 32 - log2Ceil(LINE_BYTES) - IDX_BITS
+    val IDX_BITS = log2Ceil(LINE_SIZE)
+    val TAG_BITS = 32 - log2Ceil(LINE_BTYES) - IDX_BITS
 
-    // Cache寄存器
-    val valid     = RegInit(VecInit(Seq.fill(LINE_SIZE)(false.B)))
-    val tags      = Reg(Vec(LINE_SIZE, UInt(TAG_BITS.W)))
-    val data      = Reg(Vec(LINE_SIZE, UInt(WORD_LEN.W)))
+    // Cache行和标签
+    val valid = RegInit(VecInit(Seq.fill(LINE_SIZE)(false.B)))
+    val tags  = Reg(Vec(LINE_SIZE, UInt(TAG_BITS.W)))
+    val data  = Reg(Vec(LINE_SIZE, UInt(WORD_LEN.W)))
 
-    // 状态机定义
-    val s_idle :: s_mem_read :: s_mem_write :: Nil = Enum(3)
-    val state = RegInit(s_idle)
+    // 地址分解
+    val addr    = io.cpu.addr
+    val idx     = addr(log2Ceil(LINE_BTYES) + IDX_BITS - 1, log2Ceil(LINE_BTYES))
+    val tag     = addr(31, log2Ceil(LINE_BTYES) + IDX_BITS)
+    val offset  = addr(log2Ceil(LINE_BTYES) - 1, 0)   // 本例只支持LINE_BTYES=4
 
-    // 请求锁存寄存器
-    val req_addr   = Reg(UInt(32.W))
-    val req_wen    = Reg(Bool())
-    val req_ben    = Reg(UInt(4.W))
-    val req_wdata  = Reg(UInt(WORD_LEN.W))
+    // 命中判断
+    val hit = valid(idx) && (tags(idx) === tag)
 
-    // 地址分解函数
-    def getIdx(addr: UInt) = addr(log2Ceil(LINE_BYTES) + IDX_BITS - 1, log2Ceil(LINE_BYTES))
-    def getTag(addr: UInt) = addr(31, log2Ceil(LINE_BYTES) + IDX_BITS)
-
-    // 输出默认
+    // 默认输出
     io.cpu.rdata := 0.U
     io.cpu.ready := false.B
 
+    // 内存端
     io.mem.valid := false.B
-    io.mem.addr  := req_addr
+    io.mem.addr  := io.cpu.addr
     io.mem.addrb := io.cpu.addrb
-    io.mem.wen   := false.B
-    io.mem.ben   := req_ben
-    io.mem.wdata := req_wdata
+    io.mem.wen   := io.cpu.wen
+    io.mem.ben   := io.cpu.ben
+    io.mem.wdata := io.cpu.wdata
 
-    // 当前请求参数
-    val cur_addr  = Mux(state === s_idle, io.cpu.addr, req_addr)
-    val cur_idx   = getIdx(cur_addr)
-    val cur_tag   = getTag(cur_addr)
-    val hit       = valid(cur_idx) && (tags(cur_idx) === cur_tag)
+    // 读命中
+    val readHit = io.cpu.valid && !io.cpu.wen && hit
+    dontTouch(readHit)
 
-    switch(state) {
-        is(s_idle) {
-            // 等待新请求：由cpu.valid驱动进入
-            io.cpu.ready := false.B
-            when(io.cpu.valid) {
-                // 锁存请求
-                req_addr  := io.cpu.addr
-                req_wen   := io.cpu.wen
-                req_ben   := io.cpu.ben
-                req_wdata := io.cpu.wdata
-
-                when(io.cpu.wen) {
-                    // 写命中/写未命中，都要写内存
-                    state := s_mem_write
-                } .otherwise {
-                    when(hit) {
-                        // 读命中直接响应
-                        io.cpu.rdata := data(cur_idx)
-                        io.cpu.ready := true.B
-                    } .otherwise {
-                        // 读未命中，启动mem read
-                        state := s_mem_read
-                    }
-                }
-            }
-        }
-        is(s_mem_read) {
-            // 读miss阶段
+    when(io.cpu.valid) {
+        when(io.cpu.wen) {
+            // 写操作（写直达，写透）
             io.mem.valid := true.B
-            io.mem.addr  := req_addr
-            io.mem.wen   := false.B
-            io.mem.ben   := req_ben
-            when(io.mem.ready) {
-                // 返回数据，写入cache
-                valid(getIdx(req_addr)) := true.B
-                tags(getIdx(req_addr))  := getTag(req_addr)
-                data(getIdx(req_addr))  := io.mem.rdata
-                // 返回给CPU
-                io.cpu.rdata := io.mem.rdata
-                io.cpu.ready := true.B
-                state := s_idle
-            }
-        }
-        is(s_mem_write) {
-            io.mem.valid := true.B
-            io.mem.addr  := req_addr
             io.mem.wen   := true.B
-            io.mem.ben   := req_ben
-            io.mem.wdata := req_wdata
-            when(io.mem.ready) {
-                // 写直达，写cache只有命中才更新
-                when(hit) {
-                    val oldWord = data(cur_idx)
-                    val newWord = Wire(UInt(WORD_LEN.W))
-                    val wmask   = req_ben.asBools
-                    newWord := Cat(
-                        Mux(wmask(3), req_wdata(31, 24), oldWord(31, 24)),
-                        Mux(wmask(2), req_wdata(23, 16), oldWord(23, 16)),
-                        Mux(wmask(1), req_wdata(15, 8),  oldWord(15, 8)),
-                        Mux(wmask(0), req_wdata(7, 0),   oldWord(7, 0))
-                    )
-                    data(cur_idx) := newWord
-                    // 注意tags不用动
+            io.mem.addr  := io.cpu.addr
+            io.mem.ben   := io.cpu.ben
+            io.mem.wdata := io.cpu.wdata
+            io.cpu.ready := io.mem.ready
+
+            // 写cache（只有写命中才同时写）
+            when(hit) {
+                val newWord = Wire(UInt(WORD_LEN.W))
+                // 处理字节写 mask
+                val wmask = Wire(Vec(4, Bool()))
+                for(i <- 0 until 4) {
+                    wmask(i) := io.cpu.ben(i)
                 }
+                // 多路组合字节覆盖
+                newWord :=
+                    Cat(
+                        Mux(wmask(3), io.cpu.wdata(31,24), data(idx)(31,24)),
+                        Mux(wmask(2), io.cpu.wdata(23,16), data(idx)(23,16)),
+                        Mux(wmask(1), io.cpu.wdata(15,8),  data(idx)(15,8)),
+                        Mux(wmask(0), io.cpu.wdata(7,0),   data(idx)(7,0))
+                    )
+                data(idx) := newWord
+            }
+        } .otherwise {
+            // 读
+            when(hit) {
+                io.cpu.rdata := data(idx)
                 io.cpu.ready := true.B
-                state := s_idle
+            } .otherwise {
+                // miss 直通内存
+                io.mem.valid := true.B
+                io.mem.wen   := false.B
+                io.mem.addr  := io.cpu.addr
+                io.mem.ben   := io.cpu.ben
+                io.cpu.ready := io.mem.ready
+                io.cpu.rdata := io.mem.rdata
+                // miss返回后写入cache
+                when(io.mem.ready) {
+                    valid(idx) := true.B
+                    tags(idx)  := tag
+                    data(idx)  := io.mem.rdata
+                }
             }
         }
     }

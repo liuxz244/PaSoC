@@ -2,6 +2,7 @@ package PaSoC
 
 import chisel3._       // chisel本体
 import chisel3.util._  // chisel功能
+import chisel3.util.experimental.loadMemoryFromFileInline
 import Consts._
 
 
@@ -179,7 +180,7 @@ class MulModule extends Module {
 
 
 // 2位分支历史表
-    class BHT(val tableSize: Int = 256) extends Module {
+class BHT(val tableSize: Int = 64) extends Module {
     val idxWidth = log2Ceil(tableSize)
     val io = IO(new Bundle {
         // 查询
@@ -193,23 +194,22 @@ class MulModule extends Module {
     })
 
     // 2位饱和计数器的 bht 表项，初始值一般为 2 (Weakly Taken) 或 0 (Strongly Not Taken)
-    val bhtTable = RegInit(VecInit(Seq.fill(tableSize)(2.U(2.W))))
+    val bhtTable = Mem(tableSize, UInt(2.W))
+    loadMemoryFromFileInline(bhtTable, "src/test/hex/bht.hex")  // 初始化BHT
 
     val query_idx = io.query_pc(idxWidth+1, 2)
+    val bhtTable_read = bhtTable.read(query_idx)
     // 最高位决定预测
-    io.predict_taken := Mux(io.query, bhtTable(query_idx)(1), false.B)
+    io.predict_taken := Mux(io.query, bhtTable_read(1), false.B)
 
     when(io.update) {
         val update_idx = io.update_pc(idxWidth+1, 2)
-        val counter = bhtTable(update_idx)
+        val counter = bhtTable.read(update_idx)
 
-        when(io.update_taken) {
-            // 实际跳转：计数器加1，饱和到3
-            bhtTable(update_idx) := Mux(counter === 3.U, 3.U, counter + 1.U)
-        } .otherwise {
-            // 实际未跳转：计数器减1，饱和到0
-            bhtTable(update_idx) := Mux(counter === 0.U, 0.U, counter - 1.U)
-        }
+        val next_val = Mux(io.update_taken,
+            Mux(counter === 3.U, 3.U, counter + 1.U),
+            Mux(counter === 0.U, 0.U, counter - 1.U)
+        )
+        bhtTable.write(update_idx, next_val)
     }
 }
-
