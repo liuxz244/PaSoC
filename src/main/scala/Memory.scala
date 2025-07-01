@@ -428,8 +428,8 @@ class SimpleCache(
     val LINE_BTYES: Int = 4
 ) extends Module {
     val io = IO(new Bundle {
-        val cpu = new DBusPortIO()
-        val mem = Flipped(new DBusPortIO())
+        val cpu = new DBusPortIO(32)
+        val mem = Flipped(new DBusPortIO(32))
     })
 
     // 计算参数
@@ -474,8 +474,8 @@ class SimpleCache(
     io.cpu.ready   := false.B
 
     io.mem.valid := false.B
+    io.mem.wen   := false.B
     io.mem.addr  := addr_s2
-    io.mem.wen   := wen_s2
     io.mem.ben   := ben_s2
     io.mem.wdata := wdata_s2
 
@@ -504,6 +504,8 @@ class SimpleCache(
                         Mux(wmask(0), wdata_s2(7,0),   data_s2(7,0))
                     )
                 data(idx_s2) := newWord
+                io.mem.wdata := newWord
+                io.mem.ben   := "b1111".U
             }
         } .otherwise {
             // 读操作
@@ -530,28 +532,29 @@ class SimpleCache(
 
 
 // 仿真用有延迟ram
-class SimDRAM(depth: Int) extends Module {
+class SimDRAM(depth: Int, DATA_WIDTH: Int = 32) extends Module {
     val io = IO(new Bundle {
-        val bus = new DBusPortIO()
+        val bus = new DBusPortIO(DATA_WIDTH)
     })
+    val BYTE_CNT = DATA_WIDTH / 8
 
     // 注意：使用ByteAddress, 所以ram大小为depth字（不是字节）
-    val ram = Mem(depth, UInt(WORD_LEN.W))
+    val ram = Mem(depth, UInt(DATA_WIDTH.W))
 
     // 记录最后一次请求的相关信息与计数
     val doing   = RegInit(false.B)
     val cnt     = RegInit(0.U(2.W))
     val wenReg  = Reg(Bool())
     val addrReg = Reg(UInt(log2Ceil(depth).W))
-    val wdataReg= Reg(UInt(WORD_LEN.W))
-    val benReg  = Reg(UInt(4.W))
+    val wdataReg= Reg(UInt(DATA_WIDTH.W))
+    val benReg  = Reg(UInt(BYTE_CNT.W))
 
     // 默认输出
     io.bus.rdata := 0.U
     io.bus.ready := false.B
 
     // address translation: 以字为单位
-    val addr_word = io.bus.addr(log2Ceil(depth * 4)-1, 2)    // 4字节对齐
+    val addr_word = io.bus.addr(log2Ceil(depth * BYTE_CNT)-1, log2Ceil(BYTE_CNT))  // 字节对齐
 
     when(io.bus.valid && !doing) {
         // 拉高请求，采样
@@ -571,11 +574,11 @@ class SimDRAM(depth: Int) extends Module {
                 // 写操作，片选ben
                 // 写Mask（按byte写）
                 val old = ram.read(addrReg)
-                val wmask = VecInit(Seq.tabulate(4)(i =>
+                val wmask = VecInit(Seq.tabulate(BYTE_CNT)(i =>
                     benReg(i)
                 ))
                 val wmaskData = Cat(
-                    (0 until 4).reverse.map{i =>
+                    (0 until BYTE_CNT).reverse.map{i =>
                         Mux(benReg(i), wdataReg(8*(i+1)-1,8*i), old(8*(i+1)-1,8*i))
                     }
                 )
@@ -584,6 +587,169 @@ class SimDRAM(depth: Int) extends Module {
             .otherwise {
                 // 读操作
                 io.bus.rdata := ram.read(addrReg)
+            }
+        }
+    }
+}
+
+
+class WideCache(
+    val LINE_SIZE : Int = 16,   // 行数（索引数）
+    val LINE_BYTES : Int = 4    // 其实一行4B。但与mem总线无关
+) extends Module {
+    val io = IO(new Bundle {
+        val cpu = new DBusPortIO(32)
+        val mem = Flipped(new DBusPortIO(128))
+    })
+
+    // 基本参数
+    val WORD_LEN = 32
+    val MEM_DATA_LEN = 128
+    val MEM_DATA_WORDS = MEM_DATA_LEN / WORD_LEN  // =4
+    val IDX_BITS = log2Ceil(LINE_SIZE)
+    val TAG_BITS = 32 - log2Ceil(LINE_BYTES) - IDX_BITS
+    val OFFSET_BITS = log2Ceil(MEM_DATA_LEN/8)  // 128bit=16B
+    val LINE_OFFSET_BIT = log2Ceil(LINE_BYTES)  // =2
+
+    // Cache tag & 数据（依旧每行一字32bit）
+    val valid = RegInit(VecInit(Seq.fill(LINE_SIZE)(false.B)))
+    val tags  = Reg(Vec(LINE_SIZE, UInt(TAG_BITS.W)))
+    val data  = Reg(Vec(LINE_SIZE, UInt(WORD_LEN.W)))
+
+    // stage1：采样请求信号
+    val s1_valid = io.cpu.valid
+
+    val addr_s1 = io.cpu.addr
+    val idx_s1  = addr_s1(LINE_OFFSET_BIT + IDX_BITS - 1, LINE_OFFSET_BIT)
+    val tag_s1  = addr_s1(31, LINE_OFFSET_BIT + IDX_BITS)
+    val wen_s1  = io.cpu.wen
+    val ben_s1  = io.cpu.ben
+    val wdata_s1 = io.cpu.wdata
+    val offset_s1 = addr_s1(LINE_OFFSET_BIT-1, 0)     // 32bit字内字节偏移，如[1:0]
+    val line_offset_s1 = addr_s1(OFFSET_BITS-1, LINE_OFFSET_BIT) // 128bit大行内的哪个word
+
+    val hit_s1 = valid(idx_s1) && (tags(idx_s1) === tag_s1)
+    val data_s1 = data(idx_s1)
+    val tags_s1 = tags(idx_s1)
+
+    // ---- pipeline寄存器 ----
+    val s1_fire = s1_valid
+
+    val s2_valid = RegNext(s1_fire, false.B)
+    val idx_s2   = RegNext(idx_s1)
+    val tag_s2   = RegNext(tag_s1)
+    val wen_s2   = RegNext(wen_s1)
+    val ben_s2   = RegNext(ben_s1)
+    val wdata_s2 = RegNext(wdata_s1)
+    val hit_s2   = RegNext(hit_s1)
+    val data_s2  = RegNext(data_s1)
+    val tags_s2  = RegNext(tags_s1)
+    val addr_s2  = RegNext(addr_s1)
+    val offset_s2 = RegNext(offset_s1)
+    val line_offset_s2 = RegNext(line_offset_s1)
+
+    // 上一拍mem.ready
+    val s2_done = RegNext(io.mem.ready, false.B)    
+    val rh_done = RegInit(false.B)
+    rh_done := false.B
+
+    // 默认assign
+    io.cpu.rdata   := 0.U
+    io.cpu.ready   := false.B
+
+    io.mem.valid := false.B
+    io.mem.wen   := false.B
+    io.mem.addr  := Cat(addr_s2(31, OFFSET_BITS), 0.U(OFFSET_BITS.W)) // 对齐到128bit
+    io.mem.ben   := 0.U(16.W)
+    io.mem.wdata := 0.U(128.W)
+
+    // 便于分拆128bit为4x32bit
+    def getWord(dword: UInt, idx: UInt): UInt = {
+        require(dword.getWidth == 128)
+        val slices = Wire(Vec(4, UInt(32.W)))
+        for (i <- 0 until 4) {
+            slices(i) := dword(32*(i+1)-1, 32*i)
+        }
+        slices(idx)
+    }
+
+    // 拼装128bit新数据，改某一段
+    def update128(orig: UInt, idx: UInt, neww: UInt, ben: UInt): UInt = {
+        val slices = Wire(Vec(4, UInt(32.W)))
+        for (i <- 0 until 4) {
+            // sel: 当前word并用ben决定替换位置
+            val isSel = idx === i.U
+            val oldw = orig(32*(i+1)-1, 32*i)
+            val wmask = Wire(Vec(4, Bool()))
+            for (j <- 0 until 4) {
+                wmask(j) := ben(j)
+            }
+            val tempw = Cat(
+                Mux(wmask(3), neww(31,24), oldw(31,24)),
+                Mux(wmask(2), neww(23,16), oldw(23,16)),
+                Mux(wmask(1), neww(15,8),  oldw(15,8)),
+                Mux(wmask(0), neww(7,0),   oldw(7,0))
+            )
+            slices(i) := Mux(isSel, tempw, oldw)
+        }
+        slices.reverse.reduce(Cat(_, _))
+    }
+
+    // ------- stage2: 控制 --------
+    when(s2_valid && !s2_done && !rh_done) {
+        when(wen_s2) {
+            // ---- 写操作 ----
+            when(hit_s2) {
+                // 命中: 直接写32位cache
+                val newWord = Wire(UInt(32.W))
+                val wmask = Wire(Vec(4, Bool()))
+                for (i <- 0 until 4) { wmask(i) := ben_s2(i) }
+                newWord :=
+                    Cat(
+                        Mux(wmask(3), wdata_s2(31,24), data_s2(31,24)),
+                        Mux(wmask(2), wdata_s2(23,16), data_s2(23,16)),
+                        Mux(wmask(1), wdata_s2(15,8),  data_s2(15,8)),
+                        Mux(wmask(0), wdata_s2(7,0),   data_s2(7,0))
+                    )
+                data(idx_s2) := newWord
+            }
+            // 每一次写都需要写128位mem（写穿透）
+            io.mem.valid := true.B
+            io.mem.wen   := true.B
+            io.cpu.ready := io.mem.ready
+            // 拼装 128bit写掩码ben: 对应word为ben扩4，为0则全0
+            val mem_ben = Wire(UInt(16.W))
+            mem_ben := 0.U
+            val offset = line_offset_s2
+            mem_ben := (0 until 4).map(i =>
+                Mux(offset === i.U, (ben_s2 << (i*4)).asUInt, 0.U)
+            ).reduce(_ | _)
+            io.mem.ben := mem_ben
+
+            // 这里假设mem端只改那个word，不会影响同128bank其它字(即DRAM有选择写每4bit)。
+            // 若mem要求整128bit重写，需先读出原128，再融合
+            io.mem.wdata := Fill(4, wdata_s2) // 仅ben有效位置有效
+            // 更好的做法：cache自身冗余1寄存128bit数据，在miss情况下从mem读后合并; 这里只有32位
+        } .otherwise {
+            // ---- 读操作 ----
+            when(hit_s2) {
+                io.cpu.rdata := data_s2
+                io.cpu.ready := true.B
+                rh_done := true.B
+            } .otherwise {
+                // miss: 发起128bit读，且定位要返回哪个word给cpu
+                io.mem.valid := true.B
+                io.mem.wen   := false.B
+                io.cpu.ready := io.mem.ready
+                // 从mem返回的128位中提取
+                val mem_word_sel = line_offset_s2      // cacheline偏移
+                io.cpu.rdata := getWord(io.mem.rdata, mem_word_sel)
+                // miss返回，将32位字填入cache
+                when(io.mem.ready) {
+                    valid(idx_s2) := true.B
+                    tags(idx_s2)  := tag_s2
+                    data(idx_s2)  := getWord(io.mem.rdata, mem_word_sel)
+                }
             }
         }
     }

@@ -17,7 +17,8 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
         val uart_tx = Output(Bool())
         val uart_rx = Input( Bool())
         val irq     = Input(UInt(7.W))
-        val sdram   = new Sdr32bit8mIO
+        //val sdram   = new Sdr32bit8mIO
+        val ddr3 = Flipped(new DBusPortIO(128))
     })
 
     val core  = Module(new PasoRV())
@@ -28,7 +29,7 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
     val uart  = Module(new UartCtrl())
     val plic  = Module(new PLIC())
     val clint = Module(new CLINT())
-    val sdram = Module(new SdrEmbed8M)
+    //val sdram = Module(new SdrEmbed8M)
 
     // 添加可配置外设数量的总线选择器
     val dbus = Module(new DBusMux(7))
@@ -42,9 +43,9 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
     plic.io.bus  <> dbus.io.devs(5)
     clint.io.bus <> dbus.io.devs(6)
 
-    dmem.io.addrb  := core.io.addrb  // 对BRAM需要在提前发出地址
+    dmem.io.addrb  := core.io.addrb    // 对BRAM需要在提前发出地址
     plic.io.irq_in := Cat(gpio.io.irq, io.irq)  // PLIC中断源输入
-    core.io.clint  := clint.io.irq   // 连接定时器中断
+    core.io.clint  := clint.io.irq     // 连接定时器中断
     core.io.plic   := plic.io.irq_out  // 连接外部中断
 
     // 外设输入输出
@@ -53,14 +54,14 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
     pwm.io.pwm     <> io.pwm
     uart.io.tx     <> io.uart_tx
     uart.io.rx     <> io.uart_rx
-    sdram.io.sdram <> io.sdram
+    //sdram.io.sdram <> io.sdram
     
     if(with_cache) {
-        val cache = Module(new SimpleCache())
+        val cache = Module(new WideCache())
         cache.io.cpu <> dbus.io.devs(4)
-        cache.io.mem <> sdram.io.bus
+        cache.io.mem <> io.ddr3 // sdram.io.bus
     } else {
-        dbus.io.devs(4) <> sdram.io.bus
+        //dbus.io.devs(4) <> sdram.io.bus
     }
 
     uart.io.rx_flag := false.B
@@ -85,12 +86,12 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     val core  = Module(new PasoRV())
     val imem  = Module(new ITCM(4096, initHex))
     val dmem  = Module(new DTCM(2048, initHex))
+    val dram  = Module(new SimDRAM(8192, 128))
     val gpio  = Module(new GPIOCtrl())
     val pwm   = Module(new PWMCtrl())
     val uart  = Module(new UartCtrl())
     val plic  = Module(new PLIC())
     val clint = Module(new CLINT())
-    val dram  = Module(new SimDRAM(8192))
 
     // 添加可配置外设数量的总线选择器
     val dbus = Module(new DBusMux(7))
@@ -104,9 +105,9 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     plic.io.bus  <> dbus.io.devs(5)
     clint.io.bus <> dbus.io.devs(6)
     
-    dmem.io.addrb  := core.io.addrb  // 对BRAM需要在提前发出地址
+    dmem.io.addrb  := core.io.addrb   // 对BRAM需要在提前发出地址
     plic.io.irq_in := Cat(gpio.io.irq, io.irq)  // PLIC中断源输入
-    core.io.clint := clint.io.irq    // 连接定时器中断
+    core.io.clint := clint.io.irq     // 连接定时器中断
     core.io.plic  := plic.io.irq_out  // 连接外部中断
 
     // 外设输入输出
@@ -117,7 +118,7 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     uart.io.rx     <> io.uart_rx
 
     if(with_cache) {
-        val cache = Module(new SimpleCache())
+        val cache = Module(new WideCache())
         cache.io.cpu <> dbus.io.devs(4)
         cache.io.mem <> dram.io.bus
     } else {

@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 #define SDRAM_BASE   0x40000000U
-#define SDRAM_END    0x40800000U   // 0x407FFFFF + 1
+#define SDRAM_END    0x41000000U   // 0x407FFFFF + 1
 #define SDRAM_STEP   4             // 步进4字节(32位)
 
 /**
