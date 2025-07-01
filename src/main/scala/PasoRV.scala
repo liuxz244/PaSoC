@@ -114,7 +114,7 @@ class PasoRV extends Module {
     val exe_jmp_flg  = Wire(Bool())
     val exe_alu_out  = Wire(UInt(WORD_LEN.W))
 
-    val bht = Module(new BHT(64));  // 分支历史表，仅当是分支指令时才能查询，防止普通指令误触
+    val bht = Module(new BHT(128));  // 分支历史表，仅当是分支指令时才能查询，防止普通指令误触
     bht.io.query_pc := if_reg_pc;   val if_pred_br  = bht.io.predict_taken;  
     val if_is_branch = (if_inst(6,0) === "b1100011".U);  bht.io.query := if_is_branch
     // 计算分支预测的目标地址
