@@ -1,43 +1,43 @@
 module wb_ddr3(
     // Wishbone接口
-    input               wb_cyc_i,
-    input               wb_stb_i,
-    input               wb_we_i,
-    input      [31:0]   wb_adr_i,
-    input      [15:0]   wb_sel_i,
-    input      [127:0]  wb_dat_i,
-    output     [127:0]  wb_dat_o,
-    output              wb_ack_o,
-
-    output              clk_36m,
-    input               pll_lock,
-    input               sys_rst_n,
-    input               sys_clk,
-    input               clk_144m,
-    output              init_cpl,
-
-    output [13:0] ddr_addr,
-    output [2:0]  ddr_bank,
-    output        ddr_cs,
-    output        ddr_ras,
-    output        ddr_cas,
-    output        ddr_we,
-    output        ddr_ck,
-    output        ddr_ck_n,
-    output        ddr_cke,
-    output        ddr_odt,
-    output        ddr_rst_n,
-    output [1:0]  ddr_dm,
-    inout  [15:0] ddr_dq,
-    inout  [1:0]  ddr_dqs,
-    inout  [1:0]  ddr_dqs_n
+    input            wb_cyc_i,
+    input            wb_stb_i,
+    input            wb_we_i,
+    input   [31:0]   wb_adr_i,
+    input   [15:0]   wb_sel_i,
+    input   [127:0]  wb_dat_i,
+    output  [127:0]  wb_dat_o,
+    output           wb_ack_o,
+    // 时钟及复位、初始化
+    output           clk_36m,
+    input            pll_lock,
+    input            sys_rst_n,
+    input            sys_clk,
+    input            clk_144m,
+    output           init_cpl,
+    // DDR3物理层信号
+    output  [13:0]   ddr_addr,
+    output  [2:0]    ddr_bank,
+    output           ddr_cs,
+    output           ddr_ras,
+    output           ddr_cas,
+    output           ddr_we,
+    output           ddr_ck,
+    output           ddr_ck_n,
+    output           ddr_cke,
+    output           ddr_odt,
+    output           ddr_rst_n,
+    output  [1:0]    ddr_dm,
+    inout   [15:0]   ddr_dq,
+    inout   [1:0]    ddr_dqs,
+    inout   [1:0]    ddr_dqs_n
 );
 
     // Wishbone请求信号
     wire wb_rd_req = wb_cyc_i && wb_stb_i && ~wb_we_i;
     wire wb_wr_req = wb_cyc_i && wb_stb_i &&  wb_we_i;
     // 地址对齐
-    wire [27:0] ddr_addr_align = {1'b0, wb_adr_i[27:4], 3'b0};
+    wire [27:0] ddr_addr_align = {wb_adr_i[27:24], 1'b0, wb_adr_i[23:4], 3'b0};
 
     // 命令等直连，组合生成
     wire [2:0]   app_cmd = wb_rd_req ? 3'b001 : 
@@ -138,6 +138,7 @@ module wb_ddr3(
         .ref_ack        (),
         .ddr_rst        (),
         .init_calib_complete(init_cpl),
+        
         .O_ddr_addr     (ddr_addr),
         .O_ddr_ba       (ddr_bank),
         .O_ddr_cs_n     (ddr_cs),

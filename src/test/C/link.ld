@@ -4,7 +4,7 @@ MEMORY
 {
     INSTR (rx) : ORIGIN = 0x00000000, LENGTH = 16K  /* 指令空间 */
     DATA  (rw) : ORIGIN = 0x10000000, LENGTH = 8K   /* 数据空间 */
-    SDRAM (rw) : ORIGIN = 0x40000000, LENGTH = 8M   /* SDRAM 区 */
+    DRAM  (rw) : ORIGIN = 0x40000000, LENGTH = 128M /* 主内存区 */
 }
 
 SECTIONS
@@ -28,12 +28,12 @@ SECTIONS
         *(.data .data.*)
     } > DATA
 
-    /* ---- 数据SDRAM部分 ---- */
-    . = ORIGIN(SDRAM);
+    /* ---- 数据DRAM部分 ---- */
+    . = ORIGIN(DRAM);
     .bss (NOLOAD) : {
         *(.bss .bss.*)
         *(COMMON)
-    } > SDRAM
+    } > DRAM
 
     _end = .;  /* 堆起始 */
     STACK_SIZE = 16K;  /* 需要多少栈 */
@@ -43,12 +43,12 @@ SECTIONS
     _stack_limit = .;
     . = ORIGIN(DATA) + LENGTH(DATA);
     
-    /* 堆栈使用 SDRAM */
+    /* 堆栈使用 DRAM */
     /*
     STACK_TOP  = 32K;
-    . = ORIGIN(SDRAM) + STACK_TOP - STACK_SIZE;
+    . = ORIGIN(DRAM) + STACK_TOP - STACK_SIZE;
     _stack_limit = .;
-    . = ORIGIN(SDRAM) + STACK_TOP;
+    . = ORIGIN(DRAM) + STACK_TOP;
     */
     PROVIDE(_stack_top = .);
     PROVIDE(_sp = .);
