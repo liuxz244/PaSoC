@@ -4,7 +4,7 @@ MEMORY
 {
     INSTR (rx) : ORIGIN = 0x00000000, LENGTH = 16K  /* 指令空间 */
     DATA  (rw) : ORIGIN = 0x10000000, LENGTH = 8K   /* 数据空间 */
-    DRAM  (rw) : ORIGIN = 0x40000000, LENGTH = 128M /* 主内存区 */
+    DRAM  (rw) : ORIGIN = 0x40000000, LENGTH = 8M   /* 主内存区 */
 }
 
 SECTIONS

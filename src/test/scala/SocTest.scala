@@ -76,12 +76,14 @@ class UartTest extends AnyFlatSpec with ChiselScalatestTester {
         test(new PaSoCsim(hexFile)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             dut.clock.setTimeout(0)  // 关闭Chisel原本的超时机制
             var stepCount = 0
-            val maxCycles = 5000
+            val maxCycles = 9000
             // 当exit不为1且未超出最大步数时循环
             while(!dut.io.exit.peek().litToBoolean && stepCount < maxCycles) 
             {
                 if (stepCount == 100) { 
-                    stepCount += sendString(dut, "ABC\n6\n0x1D\n")  // 发送11个字符用22个周期
+                    stepCount += sendString(dut, "mem read 0x")
+                } else if (stepCount == 2500) { 
+                    stepCount += sendString(dut, "40000000\n")
                 } else {
                     dut.clock.step(1)
                     stepCount += 1

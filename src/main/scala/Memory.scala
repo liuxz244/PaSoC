@@ -282,147 +282,70 @@ class SdrNodqm8M extends Module {
     }
 }
 
-// 大体同上，但使用o_wstrb和DQM实现直接的半字/字节写入
-// 写延迟4周期，读延迟8周期
-class SdrEmbed8M extends Module {
+
+// 仿真用有延迟ram
+class SimDRAM(depth: Int, DATA_WIDTH: Int = 32) extends Module {
     val io = IO(new Bundle {
-        val bus   = new DBusPortIO
-        val sdram = new Sdr32bit8mIO
+        val bus = new DBusPortIO(DATA_WIDTH)
     })
+    val BYTE_CNT = DATA_WIDTH / 8
 
-    val sIdle :: sReq :: Nil = Enum(2)
-    val state = RegInit(sIdle)
+    // 注意：使用ByteAddress, 所以ram大小为depth字（不是字节）
+    val ram = Mem(depth, UInt(DATA_WIDTH.W))
 
-    // 默认赋初值
-    io.sdram.o_valid := false.B
-    io.sdram.o_addr  := 0.U
-    io.sdram.o_wdata := 0.U
-    io.sdram.o_wstrb := 0.U
+    // 记录最后一次请求的相关信息与计数
+    val doing   = RegInit(false.B)
+    val cnt     = RegInit(0.U(2.W))
+    val wenReg  = Reg(Bool())
+    val addrReg = Reg(UInt(log2Ceil(depth).W))
+    val wdataReg= Reg(UInt(DATA_WIDTH.W))
+    val benReg  = Reg(UInt(BYTE_CNT.W))
+
+    // 默认输出
     io.bus.rdata := 0.U
     io.bus.ready := false.B
 
-    val sdram_addr = Cat(0.U(4.W), io.bus.addr(27,0))
+    // address translation: 以字为单位
+    val addr_word = io.bus.addr(log2Ceil(depth * BYTE_CNT)-1, log2Ceil(BYTE_CNT))  // 字节对齐
 
-    switch(state) {
-        is(sIdle) {
-            when(io.bus.valid) {
-                io.sdram.o_valid := true.B
-                io.sdram.o_addr  := sdram_addr
-                io.sdram.o_wdata := io.bus.wdata
-                io.sdram.o_wstrb := Mux(io.bus.wen, io.bus.ben, 0.U)
-                state := sReq
+    when(io.bus.valid && !doing) {
+        // 拉高请求，采样
+        doing    := true.B
+        cnt      := 0.U
+        wenReg   := io.bus.wen
+        addrReg  := addr_word
+        wdataReg := io.bus.wdata
+        benReg   := io.bus.ben
+    }
+    when(doing) {
+        cnt := cnt + 1.U
+        when(cnt === 3.U) {  // 四周期延迟完成
+            doing := false.B
+            io.bus.ready := true.B
+            when(wenReg) {
+                // 写操作，片选ben
+                // 写Mask（按byte写）
+                val old = ram.read(addrReg)
+                val wmask = VecInit(Seq.tabulate(BYTE_CNT)(i =>
+                    benReg(i)
+                ))
+                val wmaskData = Cat(
+                    (0 until BYTE_CNT).reverse.map{i =>
+                        Mux(benReg(i), wdataReg(8*(i+1)-1,8*i), old(8*(i+1)-1,8*i))
+                    }
+                )
+                ram.write(addrReg, wmaskData)
             }
-        }
-        is(sReq) {
-            io.sdram.o_valid := true.B
-            io.sdram.o_addr  := sdram_addr
-            io.sdram.o_wdata := io.bus.wdata
-            io.sdram.o_wstrb := Mux(io.bus.wen, io.bus.ben, 0.U)
-            when(io.sdram.i_ready) {
-                io.bus.rdata := Mux(io.bus.wen, 0.U, io.sdram.i_rdata)
-                io.bus.ready := true.B
-                state := sIdle
+            .otherwise {
+                // 读操作
+                io.bus.rdata := ram.read(addrReg)
             }
         }
     }
 }
 
-/*
-class SimpleCache(
-    val LINE_SIZE:  Int = 16,
-    val LINE_BTYES: Int = 4
-) extends Module {
-    val io = IO(new Bundle {
-        val cpu = new DBusPortIO()
-        val mem = Flipped(new DBusPortIO())
-    })
 
-    // 计算参数
-    val IDX_BITS = log2Ceil(LINE_SIZE)
-    val TAG_BITS = 32 - log2Ceil(LINE_BTYES) - IDX_BITS
-
-    // Cache行和标签
-    val valid = RegInit(VecInit(Seq.fill(LINE_SIZE)(false.B)))
-    val tags  = Reg(Vec(LINE_SIZE, UInt(TAG_BITS.W)))
-    val data  = Reg(Vec(LINE_SIZE, UInt(WORD_LEN.W)))
-
-    // 地址分解
-    val addr = io.cpu.addr
-    val idx  = addr(log2Ceil(LINE_BTYES) + IDX_BITS - 1, log2Ceil(LINE_BTYES))
-    val tag  = addr(31, log2Ceil(LINE_BTYES) + IDX_BITS)
-
-    // 命中判断
-    val hit = valid(idx) && (tags(idx) === tag)
-
-    // 默认输出
-    io.cpu.rdata := 0.U
-    io.cpu.ready := false.B
-
-    // 内存端
-    io.mem.valid := false.B
-    io.mem.addr  := io.cpu.addr
-    io.mem.addrb := io.cpu.addrb
-    io.mem.wen   := io.cpu.wen
-    io.mem.ben   := io.cpu.ben
-    io.mem.wdata := io.cpu.wdata
-
-    // 读命中
-    val readHit = io.cpu.valid && !io.cpu.wen && hit
-    dontTouch(readHit)
-
-    when(io.cpu.valid) {
-        when(io.cpu.wen) {
-            // 写操作（写直达，写透）
-            io.mem.valid := true.B
-            io.mem.wen   := true.B
-            io.mem.addr  := io.cpu.addr
-            io.mem.ben   := io.cpu.ben
-            io.mem.wdata := io.cpu.wdata
-            io.cpu.ready := io.mem.ready
-
-            // 写cache（只有写命中才同时写）
-            when(hit) {
-                val newWord = Wire(UInt(WORD_LEN.W))
-                // 处理字节写 mask
-                val wmask = Wire(Vec(4, Bool()))
-                for(i <- 0 until 4) {
-                    wmask(i) := io.cpu.ben(i)
-                }
-                // 多路组合字节覆盖
-                newWord :=
-                    Cat(
-                        Mux(wmask(3), io.cpu.wdata(31,24), data(idx)(31,24)),
-                        Mux(wmask(2), io.cpu.wdata(23,16), data(idx)(23,16)),
-                        Mux(wmask(1), io.cpu.wdata(15,8),  data(idx)(15,8)),
-                        Mux(wmask(0), io.cpu.wdata(7,0),   data(idx)(7,0))
-                    )
-                data(idx) := newWord
-            }
-        } .otherwise {
-            // 读
-            when(hit) {
-                io.cpu.rdata := data(idx)
-                io.cpu.ready := true.B
-            } .otherwise {
-                // miss 直通内存
-                io.mem.valid := true.B
-                io.mem.wen   := false.B
-                io.mem.addr  := io.cpu.addr
-                io.mem.ben   := io.cpu.ben
-                io.cpu.ready := io.mem.ready
-                io.cpu.rdata := io.mem.rdata
-                // miss返回后写入cache
-                when(io.mem.ready) {
-                    valid(idx) := true.B
-                    tags(idx)  := tag
-                    data(idx)  := io.mem.rdata
-                }
-            }
-        }
-    }
-}
-*/
-
+// 有延迟单字Cache
 class SimpleCache(
     val LINE_SIZE:  Int = 16,
     val LINE_BTYES: Int = 4
@@ -531,68 +454,7 @@ class SimpleCache(
 }
 
 
-// 仿真用有延迟ram
-class SimDRAM(depth: Int, DATA_WIDTH: Int = 32) extends Module {
-    val io = IO(new Bundle {
-        val bus = new DBusPortIO(DATA_WIDTH)
-    })
-    val BYTE_CNT = DATA_WIDTH / 8
-
-    // 注意：使用ByteAddress, 所以ram大小为depth字（不是字节）
-    val ram = Mem(depth, UInt(DATA_WIDTH.W))
-
-    // 记录最后一次请求的相关信息与计数
-    val doing   = RegInit(false.B)
-    val cnt     = RegInit(0.U(2.W))
-    val wenReg  = Reg(Bool())
-    val addrReg = Reg(UInt(log2Ceil(depth).W))
-    val wdataReg= Reg(UInt(DATA_WIDTH.W))
-    val benReg  = Reg(UInt(BYTE_CNT.W))
-
-    // 默认输出
-    io.bus.rdata := 0.U
-    io.bus.ready := false.B
-
-    // address translation: 以字为单位
-    val addr_word = io.bus.addr(log2Ceil(depth * BYTE_CNT)-1, log2Ceil(BYTE_CNT))  // 字节对齐
-
-    when(io.bus.valid && !doing) {
-        // 拉高请求，采样
-        doing    := true.B
-        cnt      := 0.U
-        wenReg   := io.bus.wen
-        addrReg  := addr_word
-        wdataReg := io.bus.wdata
-        benReg   := io.bus.ben
-    }
-    when(doing) {
-        cnt := cnt + 1.U
-        when(cnt === 3.U) {  // 四周期延迟完成
-            doing := false.B
-            io.bus.ready := true.B
-            when(wenReg) {
-                // 写操作，片选ben
-                // 写Mask（按byte写）
-                val old = ram.read(addrReg)
-                val wmask = VecInit(Seq.tabulate(BYTE_CNT)(i =>
-                    benReg(i)
-                ))
-                val wmaskData = Cat(
-                    (0 until BYTE_CNT).reverse.map{i =>
-                        Mux(benReg(i), wdataReg(8*(i+1)-1,8*i), old(8*(i+1)-1,8*i))
-                    }
-                )
-                ram.write(addrReg, wmaskData)
-            }
-            .otherwise {
-                // 读操作
-                io.bus.rdata := ram.read(addrReg)
-            }
-        }
-    }
-}
-
-
+// 有延迟四字Cache
 class WideCache(
     val LINE_SIZE :  Int = 16,  // 行数
     val LINE_BYTES : Int = 16   // 每行4字

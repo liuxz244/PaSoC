@@ -17,8 +17,7 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
         val uart_tx = Output(Bool())
         val uart_rx = Input( Bool())
         val irq     = Input(UInt(7.W))
-        //val sdram   = new Sdr32bit8mIO
-        val ddr3 = Flipped(new DBusPortIO(128))
+        val dram = Flipped(new DBusPortIO(32))
     })
 
     val core  = Module(new PasoRV())
@@ -29,7 +28,6 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
     val uart  = Module(new UartCtrl())
     val plic  = Module(new PLIC())
     val clint = Module(new CLINT())
-    //val sdram = Module(new SdrEmbed8M)
 
     // 添加可配置外设数量的总线选择器
     val dbus = Module(new DBusMux(7))
@@ -49,24 +47,22 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
     core.io.plic   := plic.io.irq_out  // 连接外部中断
 
     // 外设输入输出
-    //imem.io.rx   <> io.inst_rx
-    gpio.io.gpio   <> io.gpio
-    pwm.io.pwm     <> io.pwm
-    uart.io.tx     <> io.uart_tx
-    uart.io.rx     <> io.uart_rx
-    //sdram.io.sdram <> io.sdram
+    //imem.io.rx <> io.inst_rx
+    gpio.io.gpio <> io.gpio
+    pwm.io.pwm   <> io.pwm
+    uart.io.tx   <> io.uart_tx
+    uart.io.rx   <> io.uart_rx
     
     if(with_cache) {
-        val cache = Module(new WideCache())
+        val cache = Module(new SimpleCache())
         cache.io.cpu <> dbus.io.devs(4)
-        cache.io.mem <> io.ddr3 // sdram.io.bus
+        cache.io.mem <> io.dram
     } else {
-        //dbus.io.devs(4) <> sdram.io.bus
+        dbus.io.devs(4) <> io.dram
     }
 
     uart.io.rx_flag := false.B
     uart.io.rx_data := 0.U
-
 }
 
 
