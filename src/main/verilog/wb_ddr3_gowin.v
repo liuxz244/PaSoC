@@ -43,9 +43,9 @@ module wb_ddr3(
     wire [2:0]   app_cmd = wb_rd_req ? 3'b001 : 
                            wb_wr_req ? 3'b000 : 
                            3'b000;
-    wire [27:0]  app_addr    = ddr_addr_align;
-    wire [127:0] app_wdf_data= wb_dat_i;
-    wire [15:0]  app_wdf_mask= ~wb_sel_i;
+    wire [27:0]  app_addr     = ddr_addr_align;
+    wire [127:0] app_wdf_data = wb_dat_i;
+    wire [15:0]  app_wdf_mask = ~wb_sel_i;
 
     // 状态机
     localparam S_IDLE    = 2'd0,

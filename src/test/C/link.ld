@@ -38,18 +38,18 @@ SECTIONS
     _end = .;  /* 堆起始 */
     STACK_SIZE = 16K;  /* 需要多少栈 */
     /* 堆栈使用 DTCM */
-    
+    /*
     . = ORIGIN(DATA) + LENGTH(DATA) - STACK_SIZE;
     _stack_limit = .;
     . = ORIGIN(DATA) + LENGTH(DATA);
-    
+    */
     /* 堆栈使用 DRAM */
-    /*
+    
     STACK_TOP  = 32K;
     . = ORIGIN(DRAM) + STACK_TOP - STACK_SIZE;
     _stack_limit = .;
     . = ORIGIN(DRAM) + STACK_TOP;
-    */
+    
     PROVIDE(_stack_top = .);
     PROVIDE(_sp = .);
 }
