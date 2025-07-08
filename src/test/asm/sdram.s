@@ -59,7 +59,7 @@ test_sdram:
 	sw	a5,-20(s0)
 .L2:
 	lw	a4,-20(s0)
-	li	a5,1207959552
+	li	a5,1082130432
 	bltu	a4,a5,.L3
 	li	a5,1073741824
 	sw	a5,-20(s0)
@@ -102,7 +102,7 @@ test_sdram:
 	sw	a5,-20(s0)
 .L4:
 	lw	a4,-20(s0)
-	li	a5,1207959552
+	li	a5,1082130432
 	bltu	a4,a5,.L7
 	lui	a5,%hi(.LC6)
 	addi	a0,a5,%lo(.LC6)
@@ -124,7 +124,7 @@ test_sdram:
 	sw	a5,-20(s0)
 .L8:
 	lw	a4,-20(s0)
-	li	a5,1207959552
+	li	a5,1082130432
 	bltu	a4,a5,.L9
 	li	a5,1073741824
 	sw	a5,-20(s0)
@@ -167,7 +167,7 @@ test_sdram:
 	sw	a5,-20(s0)
 .L10:
 	lw	a4,-20(s0)
-	li	a5,1207959552
+	li	a5,1082130432
 	bltu	a4,a5,.L12
 	lui	a5,%hi(.LC8)
 	addi	a0,a5,%lo(.LC8)

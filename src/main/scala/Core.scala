@@ -213,3 +213,50 @@ class BHT(val tableSize: Int = 64) extends Module {
         bhtTable.write(update_idx, next_val)
     }
 }
+
+
+// GShare分支预测器
+class GShare(val tableSize: Int = 64) extends Module {
+    val idxWidth = log2Ceil(tableSize)
+    val io = IO(new Bundle {
+        // 查询
+        val query         = Input(Bool())
+        val query_pc      = Input(UInt(WORD_LEN.W))
+        val predict_taken = Output(Bool())
+        // 更新
+        val update        = Input(Bool())
+        val update_pc     = Input(UInt(WORD_LEN.W))
+        val update_taken  = Input(Bool())
+    })
+    
+    // 分支历史寄存器，位宽=idxWidth
+    val bhr = RegInit(0.U(idxWidth.W))
+    
+    // 模式历史表（2位饱和计数器）
+    val phtTable = Mem(tableSize, UInt(2.W))
+    //loadMemoryFromFileInline(phtTable, "src/test/hex/bht.hex")  // 初始化BHT
+
+    // ---- 查询部分 ----
+    // 提取PC的低(idxWidth)位(去除常见对齐的低2位)
+    val pc_idx = io.query_pc(idxWidth+1, 2)
+    // bhr与pc_idx异或
+    val gshare_idx = (pc_idx ^ bhr)(idxWidth-1, 0)
+    val phtTable_read = phtTable.read(gshare_idx)
+    // 最高位决定预测
+    io.predict_taken := Mux(io.query, phtTable_read(1), false.B)
+    
+    // ---- 更新部分 ----
+    when (io.update) {
+        // 用上一周期的bhr做update索引
+        val update_pc_idx = io.update_pc(idxWidth+1, 2)
+        val update_idx = (update_pc_idx ^ bhr)(idxWidth-1, 0)
+        val counter = phtTable.read(update_idx)
+        val next_val = Mux(io.update_taken,
+            Mux(counter === 3.U, 3.U, counter + 1.U),
+            Mux(counter === 0.U, 0.U, counter - 1.U)
+        )
+        phtTable.write(update_idx, next_val)
+        // 更新GHR: 移位并加入本次分支结果
+        bhr := Cat(bhr(idxWidth-2, 0), io.update_taken)
+    }
+}

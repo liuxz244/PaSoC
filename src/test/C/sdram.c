@@ -1,9 +1,9 @@
 #include "PaSoC.h"
 #include <stdint.h>
 
-#define SDRAM_BASE   0x40000000U
-#define SDRAM_END    0x50000000U   // 0x407FFFFF + 1
-#define SDRAM_STEP   4             // 步进4字节(32位)
+#define SDRAM_BASE  0x40000000U
+#define SDRAM_END   0x40800000U   // 0x407FFFFF + 1
+#define SDRAM_STEP  4             // 步进4字节(32位)
 
 /**
  * @brief 对SDRAM区间做写入-&读验证测试
