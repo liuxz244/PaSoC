@@ -99,7 +99,7 @@ class PasoRV extends Module {
 
     val if_reg_pc = RegInit(START_ADDR)
     val if_pc_plus4 = if_reg_pc + 4.U(WORD_LEN.W)
-    val if_inst = io.ibus.inst
+    val if_inst = Mux(if_reg_pc(2), io.ibus.inst(63, 32), io.ibus.inst(31, 0))
     val pred_negfail = Wire(Bool())  // 预测不分支，但实际要分支
     val pred_posfail = Wire(Bool())  // 预测要分支，但实际不分支
 
@@ -156,8 +156,8 @@ class PasoRV extends Module {
     val id_rs2_addr_b = id_reg_inst(24, 20)
 
     // EX阶段有写后读时需要暂停
-    val id_rs1_data_hazard = (exe_reg_rf_wen === REN_S) && (id_rs1_addr_b =/= 0.U) && (id_rs1_addr_b === exe_reg_wb_addr)// || id_rs1_addr_b === mem_reg_wb_addr || id_rs1_addr_b === wb_reg_wb_addr)
-    val id_rs2_data_hazard = (exe_reg_rf_wen === REN_S) && (id_rs2_addr_b =/= 0.U) && (id_rs2_addr_b === exe_reg_wb_addr)// || id_rs2_addr_b === mem_reg_wb_addr || id_rs2_addr_b === wb_reg_wb_addr)
+    val id_rs1_data_hazard = (exe_reg_rf_wen === REN_S) && (id_rs1_addr_b =/= 0.U) && (id_rs1_addr_b === exe_reg_wb_addr)
+    val id_rs2_data_hazard = (exe_reg_rf_wen === REN_S) && (id_rs2_addr_b =/= 0.U) && (id_rs2_addr_b === exe_reg_wb_addr)
     stall_hazard := (id_rs1_data_hazard || id_rs2_data_hazard)
 
     // 分支/跳转时清空旧指令

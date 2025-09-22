@@ -6,7 +6,7 @@ import Consts._
 
 class IBusPortIO extends Bundle {
     val addrb = Input( UInt(WORD_LEN.W))
-    val inst  = Output(UInt(WORD_LEN.W))
+    val inst  = Output(UInt(64.W))
 }
 
 // 数据总线接口，方向是外设的视角

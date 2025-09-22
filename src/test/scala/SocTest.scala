@@ -66,7 +66,7 @@ class GpioTest extends AnyFlatSpec with ChiselScalatestTester {
     }
 }
 
-// UART测试
+// UART测试，仅限需要输入时
 class UartTest extends AnyFlatSpec with ChiselScalatestTester {
     import UartTestUtils._
     import Consts._

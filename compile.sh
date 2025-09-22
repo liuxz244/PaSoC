@@ -2,20 +2,26 @@
 
 freq_define=""
 input=""
+perline=1  # 默认一行1条指令
 
 # 只支持“<file> [--freq=NNM]”参数顺序（先文件，后可选参数）
+# 示例：./compile.sh src/test/C/uart_tx.c
 for arg in "$@"; do
-    if [[ -z "$input" && ! "$arg" =~ ^--freq= ]]; then
+    if [[ -z "$input" && ! "$arg" =~ ^-- ]]; then
         input="$arg"
     elif [[ "$arg" =~ ^--freq=([0-9]+)[Mm]$ ]]; then
         mhz="${BASH_REMATCH[1]}"
         freq_define="-DFREQ_HZ=$((mhz * 1000000))UL"
         echo "频率指定: ${mhz} MHz (${mhz}000000 Hz)"
+    elif [[ "$arg" =~ ^--perline=([12])$ ]]; then
+        perline="${BASH_REMATCH[1]}"
+        echo "HEX输出模式: 每行${perline}条指令"
     elif [[ "$arg" =~ ^-- ]]; then
         echo "未知参数: $arg"
         exit 8
     fi
 done
+
 
 if [ -z "$input" ]; then
     echo "Usage: $0 <input_asm_file.s|input_c_file.c> [--freq=64M]"
@@ -137,8 +143,28 @@ riscv32-unknown-elf-objcopy -O binary -j .text "$elf" "$inst_bin"
 riscv32-unknown-elf-objcopy -O binary -j .data -j .rodata "$elf" "$data_bin"
 
 # === 5. 转为小端HEX，每行为一32位指令/数据（适用Chisel MEM INIT） ===
-xxd -p -c 4 "$inst_bin" | awk '{printf "%s%s%s%s\n", substr($1,7,2), substr($1,5,2), substr($1,3,2), substr($1,1,2)}' > "$inst_hex"
-xxd -p -c 4 "$data_bin" | awk '{printf "%s%s%s%s\n", substr($1,7,2), substr($1,5,2), substr($1,3,2), substr($1,1,2)}' > "$data_hex"
+if [ "$perline" -eq 1 ]; then
+    # inst: 每行1条指令（4字节）
+    xxd -p -c 4 "$inst_bin" | \
+        awk '{printf "%s%s%s%s\n", substr($1,7,2), substr($1,5,2), substr($1,3,2), substr($1,1,2)}' \
+        > "$inst_hex"
+else
+    # inst: 每行2条指令（8字节 = 2×32位）
+    xxd -p -c 8 "$inst_bin" | \
+        awk '{
+            # xxd输出：低地址在前
+            inst1_hex = substr($1,9,8)   # PC=0
+            inst2_hex = substr($1,1,8)   # PC=4
+            # 小端翻转
+            inst1 = substr(inst1_hex,7,2) substr(inst1_hex,5,2) substr(inst1_hex,3,2) substr(inst1_hex,1,2)
+            inst2 = substr(inst2_hex,7,2) substr(inst2_hex,5,2) substr(inst2_hex,3,2) substr(inst2_hex,1,2)
+            # 输出时先PC=0，再PC=4
+            printf "%s%s\n", inst1, inst2
+        }' > "$inst_hex"
+fi
+xxd -p -c 4 "$data_bin" | \
+    awk '{printf "%s%s%s%s\n", substr($1,7,2), substr($1,5,2), substr($1,3,2), substr($1,1,2)}' \
+    > "$data_hex"
 
 echo "反汇编已保存至 $output_dmp"
 echo "指令hex已保存到 $inst_hex"

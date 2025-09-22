@@ -15,16 +15,16 @@ class ITCM(val depth: Int, val initHex: String) extends Module {
     })
 
     // 1. 创建存储器
-    val mem = SyncReadMem(depth, UInt(WORD_LEN.W))
+    val mem = SyncReadMem(depth, UInt(64.W))
     val initInst = "src/test/hex/inst/" + initHex  // 拼接完整路径
     loadMemoryFromFileInline(mem, initInst)  // 初始化内存
 
     // 2. 计算地址宽度
     val addrWidth = log2Ceil(depth)
 
-    // 3. 读指令：地址转换，字节地址右移2位获得存储地址
+    // 3. 读指令：地址转换，字节地址右移3位获得存储地址
     val iaddrb = Wire(UInt(addrWidth.W))
-    iaddrb := Mux(reset.asBool, 0.U, io.bus.addrb(addrWidth + 1, 2))
+    iaddrb := Mux(reset.asBool, 0.U, io.bus.addrb(addrWidth + 1, 3))
     io.bus.inst := mem(iaddrb)
 
     /*
