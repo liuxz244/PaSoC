@@ -11,7 +11,6 @@ import sys.process._   // 使用linux命令
 
 class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
     val io = IO(new Bundle {
-        //val inst_rx = Input(Bool())
         val gpio    = new GPIOPortIO()
         val pwm     = Output(UInt(PWM_LEN.W))
         val uart_tx = Output(Bool())
@@ -47,7 +46,6 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
     core.io.plic   := plic.io.irq_out  // 连接外部中断
 
     // 外设输入输出
-    //imem.io.rx <> io.inst_rx
     gpio.io.gpio <> io.gpio
     pwm.io.pwm   <> io.pwm
     uart.io.tx   <> io.uart_tx
@@ -68,7 +66,6 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
 
 class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     val io = IO(new Bundle {
-        //val inst_rx = Input(Bool())
         val gpio    = new GPIOPortIO()
         val pwm     = Output(UInt(PWM_LEN.W))
         val uart_tx = Output(Bool())
@@ -107,7 +104,6 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     core.io.plic  := plic.io.irq_out  // 连接外部中断
 
     // 外设输入输出
-    //imem.io.rx   <> io.inst_rx
     gpio.io.gpio   <> io.gpio
     pwm.io.pwm     <> io.pwm
     uart.io.tx     <> io.uart_tx

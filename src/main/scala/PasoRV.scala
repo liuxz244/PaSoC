@@ -93,13 +93,12 @@ class PasoRV extends Module {
     // 中断返回指令
     val is_mret = (mem_reg_csr_cmd === CSR_R)
 
-
     //**********************************
     // Instruction Fetch (IF) Stage
 
     val if_reg_pc = RegInit(START_ADDR)
     val if_pc_plus4 = if_reg_pc + 4.U(WORD_LEN.W)
-    val if_inst = Mux(if_reg_pc(2), io.ibus.inst(63, 32), io.ibus.inst(31, 0))
+    val if_inst = io.ibus.inst0
     val pred_negfail = Wire(Bool())  // 预测不分支，但实际要分支
     val pred_posfail = Wire(Bool())  // 预测要分支，但实际不分支
 
@@ -291,7 +290,6 @@ class PasoRV extends Module {
         exe_reg_pred_br    := Mux(stall_flg, exe_reg_pred_br, id_reg_pred_br)
     }
 
-
     //**********************************
     // Execute (EX) Stage
     
@@ -370,7 +368,6 @@ class PasoRV extends Module {
         mem_reg_rs2_data  := Mux(irq_pending,  0.U,    exe_reg_rs2_data )
         mem_reg_mem_width := Mux(irq_pending,  LS_X,   exe_reg_mem_width)
     }
-    
 
     //**********************************
     // Memory Access Stage
