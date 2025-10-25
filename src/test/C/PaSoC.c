@@ -486,3 +486,46 @@ void write_mem8(uint32_t addr, uint8_t value) {
 uint8_t read_mem8(uint32_t addr) {
     return *((volatile uint8_t *)addr);
 }
+
+/**
+ * @brief 清屏函数：将所有像素写成指定RGB颜色
+ * r、g、b 各为 8位颜色分量 （例如全部设为 0 即黑色）
+ */
+void vga_clear(uint8_t r, uint8_t g, uint8_t b)
+{
+    uint32_t color = ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+    volatile uint32_t *vmem = (volatile uint32_t *)VGA_BASE_ADDR;
+
+    for (uint32_t i = 0; i < VGA_MEM_DEPTH; i++) {
+        vmem[i] = color;  // 每像素32bit写入
+    }
+}
+
+/**
+ * @brief 彩条函数：往屏幕上绘制彩条
+ */
+void vga_draw_color_bars(void)
+{
+    volatile uint32_t *vmem = (volatile uint32_t *)VGA_BASE_ADDR;
+
+    const uint32_t colors[] = {
+        0xFF0000, // 红  
+        0x00FF00, // 绿  
+        0x0000FF, // 蓝  
+        0xFFFF00, // 黄  
+        0xFF00FF, // 洋红  
+        0x00FFFF, // 青  
+        0xFFFFFF  // 白
+    };
+    const int num_colors = sizeof(colors) / sizeof(colors[0]);
+    int bar_width = VGA_WIDTH / num_colors;
+
+    for (int y = 0; y < VGA_HEIGHT; y++) {
+        for (int x = 0; x < VGA_WIDTH; x++) {
+            int bar = x / bar_width;
+            if (bar >= num_colors) bar = num_colors - 1;
+            uint32_t color = colors[bar] & 0xFFFFFF;
+            vmem[y * VGA_WIDTH + x] = color;
+        }
+    }
+}

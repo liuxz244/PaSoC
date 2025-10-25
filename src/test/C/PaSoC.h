@@ -19,10 +19,14 @@
 #define PLIC_PENDING  (*(volatile uint32_t *)(PLIC_BASE_ADDR + 0x00))
 #define PLIC_ENABLE   (*(volatile uint32_t *)(PLIC_BASE_ADDR + 0x04))
 #define PLIC_CLAIM    (*(volatile uint32_t *)(PLIC_BASE_ADDR + 0x0C))
+#define VGA_BASE_ADDR    0x70000000UL
+#define VGA_WIDTH        640
+#define VGA_HEIGHT       480
+#define VGA_MEM_DEPTH  (VGA_WIDTH * VGA_HEIGHT)
 
 
 #ifndef FREQ_HZ  // 定义CPU时钟频率
-#define FREQ_HZ 50000000UL  // 默认值
+#define FREQ_HZ 36000000UL  // 默认值
 #endif
 #define CYCLES_PER_MS (FREQ_HZ / 1000UL)
 
@@ -81,6 +85,8 @@ void write_mem16(uint32_t addr, uint16_t value);
 uint16_t read_mem16(uint32_t addr);
 void write_mem8(uint32_t addr, uint8_t value);
 uint8_t read_mem8(uint32_t addr);
+void vga_clear(uint8_t r, uint8_t g, uint8_t b);
+void vga_draw_color_bars(void);
 
 
 #endif

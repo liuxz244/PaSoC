@@ -536,7 +536,6 @@ class CLINT extends Module {
 
 
 // VGA显示外设，需要大量BRAM
-// TODO: 支持字节/半字访问
 class VGACtrl extends Module {
     val io = IO(new Bundle {
         val vga = new VGASignalIO()
@@ -577,19 +576,19 @@ class VGACtrl extends Module {
     val v_valid = (y_cnt > v_active) && (y_cnt <= v_backporch)
     io.vga.valid := h_valid && v_valid
 
-    val h_addr = Mux(h_valid, x_cnt - 145.U, 0.U(10.W))
-    val v_addr = Mux(v_valid, y_cnt - 36.U, 0.U(10.W))
+    val h_addr = Mux(h_valid, x_cnt - h_active - 1.U, 0.U(10.W))
+    val v_addr = Mux(v_valid, y_cnt - v_active - 1.U, 0.U(10.W))
 
     // 显存（32-bit 宽度, 每像素占1字）
     val WIDTH  = 640
     val HEIGHT = 480
     val MEM_DEPTH = WIDTH * HEIGHT
-    val mem = SyncReadMem(MEM_DEPTH, UInt(32.W))  // BRAM风格
-    loadMemoryFromFileInline(mem, "nvboard/picture.hex")
+    val vmem = SyncReadMem(MEM_DEPTH, UInt(24.W))  // BRAM风格
+    loadMemoryFromFileInline(vmem, "nvboard/picture.hex")
 
     // 显存读口
     val vga_addr = v_addr * WIDTH.U + h_addr
-    val vga_data = mem.read(vga_addr) // 同步读
+    val vga_data = vmem.read(vga_addr) // 同步读
 
     io.vga.r := vga_data(23,16)
     io.vga.g := vga_data(15,8)
@@ -598,15 +597,25 @@ class VGACtrl extends Module {
     // 数据总线访问口
     val addrWidth = log2Ceil(MEM_DEPTH)
     val daddrb = io.addrb(addrWidth, 2) // 每像素4字节对齐访问
+    val daddr  = io.bus.addr(addrWidth + 1, 2)
     io.bus.rdata := 0.U
     io.bus.ready := false.B
     
     // DBus读写
+    val old = vmem.read(daddrb)
     when (io.bus.valid) {
         io.bus.ready := true.B
         when (io.bus.wen) { // 写
-            mem.write(daddrb, io.bus.wdata)
+            val oldBytes = old.asTypeOf(Vec(3, UInt(8.W)))
+            val newBytes = io.bus.wdata(23,0).asTypeOf(Vec(3, UInt(8.W)))
+            val ben = io.bus.ben.asBools
+
+            val resultBytes = Wire(Vec(3, UInt(8.W)))
+            for (i <- 0 until 3) {
+                resultBytes(i) := Mux(ben(i), newBytes(i), oldBytes(i))
+            }
+            vmem.write(daddr, resultBytes.asUInt)
         }
     }
-    io.bus.rdata := mem.read(daddrb)  // 在valid来前就要开始读
+    io.bus.rdata := Cat(0.U(8.W), vmem.read(daddrb)) // 在valid来前就要开始读
 }
