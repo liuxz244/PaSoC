@@ -43,6 +43,15 @@ class Sdr32bit8mIO extends Bundle {
     val i_rdata  = Input(UInt(32.W))   // 读数据
 }
 
+class VGASignalIO extends Bundle {
+  val hsync  = Output(Bool())
+  val vsync  = Output(Bool())
+  val valid  = Output(Bool())
+  val r = Output(UInt(8.W))
+  val g = Output(UInt(8.W))
+  val b = Output(UInt(8.W))
+}
+
 
 /*
 class DDR16b128mIO extends Bundle {

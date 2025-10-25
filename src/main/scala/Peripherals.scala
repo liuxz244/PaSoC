@@ -3,6 +3,7 @@ package PaSoC
 import Consts._
 import chisel3._       // chisel本体
 import chisel3.util._  // chisel功能
+import chisel3.util.experimental.loadMemoryFromFileInline
 
 
 // 外设选择器
@@ -377,6 +378,7 @@ class UartCtrl extends Module {
 
 
 // OLED显示内容输出外设，真正控制OLED屏幕的代码在Verilog里
+// TODO: 大小端序需要重写
 class OledCtrl extends Module {
     val io = IO(new Bundle {
         val bus  = new DBusPortIO
@@ -530,4 +532,81 @@ class CLINT extends Module {
             ))
         }
     }
+}
+
+
+// VGA显示外设，需要大量BRAM
+// TODO: 支持字节/半字访问
+class VGACtrl extends Module {
+    val io = IO(new Bundle {
+        val vga = new VGASignalIO()
+        val bus = new DBusPortIO()
+        val addrb = Input(UInt(WORD_LEN.W))
+    })
+
+    // VGA 分辨率设置
+    val h_frontporch = 96.U
+    val h_active     = 144.U
+    val h_backporch  = 784.U
+    val h_total      = 800.U
+
+    val v_frontporch = 2.U
+    val v_active     = 35.U
+    val v_backporch  = 515.U
+    val v_total      = 525.U
+
+    val x_cnt = RegInit(1.U(10.W))
+    val y_cnt = RegInit(1.U(10.W))
+
+    when (x_cnt === h_total) {
+        x_cnt := 1.U
+        when (y_cnt === v_total) {
+        y_cnt := 1.U
+        }.otherwise {
+        y_cnt := y_cnt + 1.U
+        }
+    }.otherwise {
+        x_cnt := x_cnt + 1.U
+    }
+
+    // 同步信号
+    io.vga.hsync := x_cnt > h_frontporch
+    io.vga.vsync := y_cnt > v_frontporch
+
+    val h_valid = (x_cnt > h_active) && (x_cnt <= h_backporch)
+    val v_valid = (y_cnt > v_active) && (y_cnt <= v_backporch)
+    io.vga.valid := h_valid && v_valid
+
+    val h_addr = Mux(h_valid, x_cnt - 145.U, 0.U(10.W))
+    val v_addr = Mux(v_valid, y_cnt - 36.U, 0.U(10.W))
+
+    // 显存（32-bit 宽度, 每像素占1字）
+    val WIDTH  = 640
+    val HEIGHT = 480
+    val MEM_DEPTH = WIDTH * HEIGHT
+    val mem = SyncReadMem(MEM_DEPTH, UInt(32.W))  // BRAM风格
+    loadMemoryFromFileInline(mem, "nvboard/picture.hex")
+
+    // 显存读口
+    val vga_addr = v_addr * WIDTH.U + h_addr
+    val vga_data = mem.read(vga_addr) // 同步读
+
+    io.vga.r := vga_data(23,16)
+    io.vga.g := vga_data(15,8)
+    io.vga.b := vga_data(7,0)
+
+    // 数据总线访问口
+    val addrWidth = log2Ceil(MEM_DEPTH)
+    val daddrb = io.addrb(addrWidth, 2) // 每像素4字节对齐访问
+    io.bus.rdata := 0.U
+    io.bus.ready := false.B
+    
+    // DBus读写
+    when (io.bus.valid) {
+        io.bus.ready := true.B
+        when (io.bus.wen) { // 写
+            mem.write(daddrb, io.bus.wdata)
+        }
+    }
+    io.bus.rdata := mem.read(daddrb)  // 在valid来前就要开始读
 }

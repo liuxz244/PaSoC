@@ -68,6 +68,7 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
         val uart_tx = Output(Bool())
         val uart_rx = Input( Bool())
         val exit    = Output(Bool())
+        val vga     = new VGASignalIO()
     })
 
     val core  = Module(new PasoRV())
@@ -79,9 +80,10 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     val uart  = Module(new UartCtrl())
     val plic  = Module(new PLIC())
     val clint = Module(new CLINT())
+    val vga   = Module(new VGACtrl())
 
     // 添加可配置外设数量的总线选择器
-    val dbus = Module(new DBusMux(7))
+    val dbus = Module(new DBusMux(8))
     core.io.ibus <> imem.io.bus
     core.io.dbus <> dbus.io.bus
     // 将dmem连接到dbusMux第1个外设端口，gcc规定不能和ITCM的地址重叠
@@ -91,17 +93,20 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     uart.io.bus  <> dbus.io.devs(3)
     plic.io.bus  <> dbus.io.devs(5)
     clint.io.bus <> dbus.io.devs(6)
+    vga.io.bus   <> dbus.io.devs(7)
     
     dmem.io.addrb  := core.io.addrb   // 对BRAM需要提前发出地址
+    vga.io.addrb   := core.io.addrb   // 对BRAM需要提前发出地址
     plic.io.irq_in := Cat(gpio.io.irq, 0.U(7.W))  // PLIC中断源输入
-    core.io.clint := clint.io.irq     // 连接定时器中断
-    core.io.plic  := plic.io.irq_out  // 连接外部中断
+    core.io.clint  := clint.io.irq    // 连接定时器中断
+    core.io.plic   := plic.io.irq_out // 连接外部中断
 
     // 外设输入输出
-    gpio.io.gpio   <> io.gpio
-    pwm.io.pwm     <> io.pwm
-    uart.io.tx     <> io.uart_tx
-    uart.io.rx     <> io.uart_rx
+    gpio.io.gpio <> io.gpio
+    pwm.io.pwm   <> io.pwm
+    uart.io.tx   <> io.uart_tx
+    uart.io.rx   <> io.uart_rx
+    vga.io.vga   <> io.vga
 
     if(with_cache) {
         val cache = Module(new WideCache())
