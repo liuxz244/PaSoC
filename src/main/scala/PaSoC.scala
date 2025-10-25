@@ -58,9 +58,6 @@ class PaSoC(initHex: String, with_cache: Boolean = true) extends Module {
     } else {
         dbus.io.devs(4) <> io.dram
     }
-
-    uart.io.rx_flag := false.B
-    uart.io.rx_data := 0.U
 }
 
 
@@ -70,10 +67,7 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
         val pwm     = Output(UInt(PWM_LEN.W))
         val uart_tx = Output(Bool())
         val uart_rx = Input( Bool())
-        val irq     = Input(UInt(7.W))
         val exit    = Output(Bool())
-        val rx_flag = Input( Bool())
-        val rx_data = Input(UInt(8.W))
     })
 
     val core  = Module(new PasoRV())
@@ -98,8 +92,8 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     plic.io.bus  <> dbus.io.devs(5)
     clint.io.bus <> dbus.io.devs(6)
     
-    dmem.io.addrb  := core.io.addrb   // 对BRAM需要在提前发出地址
-    plic.io.irq_in := Cat(gpio.io.irq, io.irq)  // PLIC中断源输入
+    dmem.io.addrb  := core.io.addrb   // 对BRAM需要提前发出地址
+    plic.io.irq_in := Cat(gpio.io.irq, 0.U(7.W))  // PLIC中断源输入
     core.io.clint := clint.io.irq     // 连接定时器中断
     core.io.plic  := plic.io.irq_out  // 连接外部中断
 
@@ -116,9 +110,6 @@ class PaSoCsim(initHex: String, with_cache: Boolean = true) extends Module {
     } else {
         dbus.io.devs(4) <> dram.io.bus
     }
-
-    uart.io.rx_flag := io.rx_flag
-    uart.io.rx_data := io.rx_data
     
     io.exit := core.io.exit  // 程序结束标志
 }
@@ -133,10 +124,22 @@ object Main extends App {  // 生成.sv和.v的主函数
         // 禁用不可读的RANDOM和没用的注释
     )
     val filename = "PaSoC"; val svFile = s"${filename}.sv"
-    convertReadmemhPathsToWindows(svFile)  // Windows路径转换
+    convertReadmemhPaths(svFile)  // Windows路径转换
     val lineToAdd = "`define ENABLE_INITIAL_MEM_"
     prependLine(s"${filename}.sv", lineToAdd)  // 启用MEM初始化
     addRwAddrCollisionAttr(svFile)  // 给Vivado添加blockram先写设置
     val cmd = s"sv2v ${filename}.sv -w ${filename}.v"  // 要执行的linux命令
     val output = cmd.!!  // 执行命令并获取返回结果
+}
+
+object nvboard extends App {  // 生成.sv和.v的主函数
+    val hexFile = sys.env.getOrElse("PASOC_INIT_HEX", " ")
+    ChiselStage.emitSystemVerilogFile(
+        new PaSoCsim(hexFile),
+        Array( ),   // 将生成的Verilog代码传递给ChiselStage
+        Array("-strip-debug-info","-disable-all-randomization"),
+        // 禁用不可读的RANDOM和没用的注释
+    )
+    val lineToAdd = "`define ENABLE_INITIAL_MEM_"
+    prependLine("PaSoCsim.sv", lineToAdd)  // 启用MEM初始化
 }

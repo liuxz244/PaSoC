@@ -1,0 +1,7 @@
+top=PaSoCsim
+
+io_gpio_In (SW3, SW2, SW1, SW0)
+io_gpio_Out (LD3, LD2, LD1, LD0)
+io_pwm (LD5, LD4)
+io_uart_tx UART_TX
+io_uart_rx UART_RX

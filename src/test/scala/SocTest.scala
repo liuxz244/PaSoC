@@ -65,35 +65,3 @@ class GpioTest extends AnyFlatSpec with ChiselScalatestTester {
         }
     }
 }
-
-// UART测试，仅限需要输入时
-class UartTest extends AnyFlatSpec with ChiselScalatestTester {
-    import UartTestUtils._
-    import Consts._
-    "Uart Test" should "pass" in {
-        val hexFile = sys.env.getOrElse("PASOC_INIT_HEX", " ")
-        println(s"hexFile used: $hexFile\n")  // 初始程序文件名
-        test(new PaSoCsim(hexFile)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-            dut.clock.setTimeout(0)  // 关闭Chisel原本的超时机制
-            var stepCount = 0
-            val maxCycles = 9000
-            // 当exit不为1且未超出最大步数时循环
-            while(!dut.io.exit.peek().litToBoolean && stepCount < maxCycles) 
-            {
-                if (stepCount == 100) { 
-                    stepCount += sendString(dut, "mem read 0x")
-                } else if (stepCount == 2500) { 
-                    stepCount += sendString(dut, "40000000\n")
-                } else {
-                    dut.clock.step(1)
-                    stepCount += 1
-                }
-            }
-            if (stepCount >= maxCycles) {
-                println(s"\nWarning: 超出最大仿真步数 $maxCycles 后仍未退出，仿真被终止！")
-            } else {
-                println(s"\n仿真正常结束, 共运行 $stepCount 个周期。")
-            }
-        }
-    }
-}

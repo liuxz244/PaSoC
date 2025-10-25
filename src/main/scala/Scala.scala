@@ -17,24 +17,19 @@ object FilePrepender {
         writer.close()
     }
 
-    def convertReadmemhPathsToWindows(svFile: String): Unit = {
-        val pattern = """\$readmemh\("([^"]+)",\s*([^)]+)\);""".r
-        val lines = Source.fromFile(svFile).getLines().toList
-        val newLines = lines.map { line =>
+    def convertReadmemhPaths(svFile: String): Unit = {
+        val baseDir: String = "D:\\\\FPGA\\\\Gowin\\\\TangNano20k\\\\PaSoC\\\\hex"
+        val pattern = """\$readmemh\(\s*"src/test/hex/(inst|data)/([^"]+)"\s*,\s*([^)]+)\s*\);""".r
+        val lines   = Source.fromFile(svFile).getLines().toList
+        val newLines = lines.map {
+            line =>
             pattern.findFirstMatchIn(line) match {
                 case Some(m) =>
-                    val origPath = m.group(1)
-                    // 先转为绝对路径
-                    val absPath = new File(origPath).getAbsolutePath
-                    // WSL路径转win路径字符串处理
-                    var winPath = absPath
-                    .replaceFirst("^/mnt/([a-zA-Z])/", "$1:/")
-                    .replace("/", "\\\\")
-                    // 盘符首字母大写  (如 d:\foo -> D:\foo)
-                    if (winPath.matches("^[a-zA-Z]:.*")) {
-                    winPath = winPath.substring(0,1).toUpperCase + winPath.substring(1)
-                    }
-                    line.replace(origPath, winPath)
+                val kind     = m.group(1)  // inst 或 data
+                val filename = m.group(2)  // uart_tx.hex 等
+                val memory   = m.group(3)  // Memory
+                val newPath  = s"""$baseDir\\\\$kind\\\\$filename"""
+                s"""$$readmemh("$newPath", $memory);"""
                 case None => line
             }
         }

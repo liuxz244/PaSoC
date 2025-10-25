@@ -32,17 +32,13 @@ void print_str(const char *str)
  */
 void print_dec(unsigned int val)
 {
-    static const unsigned int pow10[] = {
-        1000000000, 100000000, 10000000, 1000000, 100000, 10000, 1000, 100, 10, 1
-    };
+    unsigned int divisor = 1000000000;
     int started = 0;
-    for (int i = 0; i < 10; ++i) {
-        char digit = 0;
-        while (val >= pow10[i]) { 
-            val -= pow10[i];
-            digit++;
-        }
-        if (digit > 0 || started || i == 9) {
+    for (int i = 0; i < 10; i++) {
+        unsigned int digit = val / divisor;
+        val -= digit * divisor;
+        divisor /= 10;
+        if (digit != 0 || started || divisor == 0) {
             print_char('0' + digit);
             started = 1;
         }

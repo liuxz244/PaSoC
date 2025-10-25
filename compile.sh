@@ -175,4 +175,16 @@ if command -v stat &>/dev/null; then
     echo "数据大小: $(stat -c %s "$data_bin") bytes"
 fi
 
+# === 6. 复制hex文件到目标目录 ===
+target_inst_dir="/mnt/d/FPGA/Gowin/TangNano20k/PaSoC/hex/inst"
+target_data_dir="/mnt/d/FPGA/Gowin/TangNano20k/PaSoC/hex/data"
+mkdir -p "$target_inst_dir" "$target_data_dir"
+
+cp "$inst_hex" "$target_inst_dir/"
+cp "$data_hex" "$target_data_dir/"
+
+echo "已复制: "
+echo "  指令hex -> $target_inst_dir/"
+echo "  数据hex -> $target_data_dir/"
+
 rm -rf "$tmpdir"

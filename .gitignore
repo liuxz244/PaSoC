@@ -10,8 +10,12 @@
 # 忽略生成的Verilog文件
 PaSoC.v
 PaSoC.sv
+PaSoCsim.sv
 
 /project/project/
 /project/target/
-
 /.vscode/
+
+# 忽略build文件夹的内容，但保留文件夹本身
+build/*
+!build/.gitkeep

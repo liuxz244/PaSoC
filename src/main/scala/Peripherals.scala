@@ -169,13 +169,10 @@ class UartCtrl extends Module {
     val io = IO(new Bundle {
         val bus = new DBusPortIO
         val tx  = Output(Bool())
-        val rx  = Input(Bool())
-        val rx_flag = Input(Bool())
-        val rx_data = Input(UInt(8.W))
+        val rx  = Input( Bool())
     })
-
-    val rvDebug = sys.env.getOrElse("PASORV_DEBUG", "0") == "1"
-    val sim = sys.env.getOrElse("PASOC_SIM", "0") == "1"
+    
+    val sim = sys.env.getOrElse("PASOC_SIM", "0") == "1"  // 仿真模式标志
     
     val baudCntMax  = (CLOCK_FREQ / BAUD_RATE).U(32.W)  // 计算波特率
     val fifoDepth = 32  // FIFO缓冲字节数
@@ -255,90 +252,73 @@ class UartCtrl extends Module {
     //============================================================
     //   串口接收状态机 & FIFO（1倍采样，简易版）
     //============================================================
-    if (sim) {
-        // =====================仿真RX专用通路=======================
-        rxFifo.io.enq.valid := io.rx_flag
-        rxFifo.io.enq.bits  := io.rx_data
-        rxFifo.io.deq.ready := false.B
-        when(is_rx_read) {
-            io.bus.ready := rxFifo.io.deq.valid
-            io.bus.rdata := Mux(rxFifo.io.deq.valid, Cat(0.U(24.W), rxFifo.io.deq.bits), 0.U)
-            rxFifo.io.deq.ready := io.bus.ready && bus_valid
-            //printf("%c", rxFifo.io.deq.bits)
-        } .elsewhen(is_rx_count) {
-            io.bus.ready := true.B
-            io.bus.rdata := Cat(0.U(28.W), rxFifo.io.count)
-        }
-    } else {
-        // ========================硬件RX收发逻辑=================
-        val rsIdle :: rsStart :: rsData :: rsStop :: Nil = Enum(4)
-        val rxState = RegInit(rsIdle)
+    val rsIdle :: rsStart :: rsData :: rsStop :: Nil = Enum(4)
+    val rxState = RegInit(rsIdle)
 
-        val rxBaudCnt = RegInit(0.U(32.W))
-        val rxShiftReg = RegInit(0.U(8.W))
-        val rxBitCnt = RegInit(0.U(3.W))
-        val rxDataRdy = WireInit(false.B)
+    val rxBaudCnt = RegInit(0.U(32.W))
+    val rxShiftReg = RegInit(0.U(8.W))
+    val rxBitCnt = RegInit(0.U(3.W))
+    val rxDataRdy = WireInit(false.B)
 
-        val rxSync = RegNext(RegNext(io.rx))
-        rxFifo.io.enq.valid := false.B
-        rxFifo.io.enq.bits  := 0.U
+    val rxSync = RegNext(RegNext(io.rx))
+    rxFifo.io.enq.valid := false.B
+    rxFifo.io.enq.bits  := 0.U
 
-        rxDataRdy := false.B
-        switch(rxState) {
-            is(rsIdle) {
+    rxDataRdy := false.B
+    switch(rxState) {
+        is(rsIdle) {
+            rxBaudCnt := 0.U
+            when(!rxSync) { // 检测到起始位
+                rxState := rsStart
                 rxBaudCnt := 0.U
-                when(!rxSync) { // 检测到起始位
-                    rxState := rsStart
-                    rxBaudCnt := 0.U
-                }
             }
-            is(rsStart) {
-                rxBaudCnt := rxBaudCnt + 1.U
-                // 等待半个bit后，跳到数据区
-                when(rxBaudCnt === (baudCntMax >> 1)) {
-                    rxBaudCnt := 0.U
-                    rxBitCnt := 0.U
-                    rxState := rsData
-                }
+        }
+        is(rsStart) {
+            rxBaudCnt := rxBaudCnt + 1.U
+            // 等待半个bit后，跳到数据区
+            when(rxBaudCnt === (baudCntMax >> 1)) {
+                rxBaudCnt := 0.U
+                rxBitCnt := 0.U
+                rxState := rsData
             }
-            is(rsData) {
-                rxBaudCnt := rxBaudCnt + 1.U
-                when(rxBaudCnt === baudCntMax - 1.U) {
-                    rxShiftReg := (rxSync.asUInt << 7) | (rxShiftReg >> 1)
-                    rxBaudCnt := 0.U
-                    when(rxBitCnt === 7.U) {
-                        rxState := rsStop
-                    }.otherwise {
-                        rxBitCnt := rxBitCnt + 1.U
-                    }
-                }
-            }
-            is(rsStop) {
-                rxBaudCnt := rxBaudCnt + 1.U
-                when(rxBaudCnt === baudCntMax - 1.U) {
-                    rxState := rsIdle
-                    rxBaudCnt := 0.U
-                    when(rxSync) { rxDataRdy := true.B } // stop bit=1
+        }
+        is(rsData) {
+            rxBaudCnt := rxBaudCnt + 1.U
+            when(rxBaudCnt === baudCntMax - 1.U) {
+                rxShiftReg := (rxSync.asUInt << 7) | (rxShiftReg >> 1)
+                rxBaudCnt := 0.U
+                when(rxBitCnt === 7.U) {
+                    rxState := rsStop
+                }.otherwise {
+                    rxBitCnt := rxBitCnt + 1.U
                 }
             }
         }
+        is(rsStop) {
+            rxBaudCnt := rxBaudCnt + 1.U
+            when(rxBaudCnt === baudCntMax - 1.U) {
+                rxState := rsIdle
+                rxBaudCnt := 0.U
+                when(rxSync) { rxDataRdy := true.B } // stop bit=1
+            }
+        }
+    }
 
-        // 接收1字节, 入FIFO
-        when(rxDataRdy && rxFifo.io.enq.ready) {
-            rxFifo.io.enq.valid := true.B
-            rxFifo.io.enq.bits := rxShiftReg
-        }
+    // 接收1字节, 入FIFO
+    when(rxDataRdy && rxFifo.io.enq.ready) {
+        rxFifo.io.enq.valid := true.B
+        rxFifo.io.enq.bits := rxShiftReg
+    }
 
-        // RX 总线操作（0x04读内容，0x08读深度）
-        rxFifo.io.deq.ready := false.B // 默认
-        when(is_rx_read) {
-            io.bus.ready := rxFifo.io.deq.valid
-            io.bus.rdata := Mux(rxFifo.io.deq.valid, Cat(0.U(24.W), rxFifo.io.deq.bits), 0.U)
-            rxFifo.io.deq.ready := io.bus.ready && bus_valid // 只在握手时出队
-        } .elsewhen(is_rx_count) {
-            io.bus.ready := true.B
-            io.bus.rdata := Cat(0.U(28.W), rxFifo.io.count)
-        }
+    // RX 总线操作（0x04读内容，0x08读深度）
+    rxFifo.io.deq.ready := false.B // 默认
+    when(is_rx_read) {
+        io.bus.ready := rxFifo.io.deq.valid
+        io.bus.rdata := Mux(rxFifo.io.deq.valid, Cat(0.U(24.W), rxFifo.io.deq.bits), 0.U)
+        rxFifo.io.deq.ready := io.bus.ready && bus_valid // 只在握手时出队
+    } .elsewhen(is_rx_count) {
+        io.bus.ready := true.B
+        io.bus.rdata := Cat(0.U(28.W), rxFifo.io.count)
     }
     
     //============================================================
@@ -352,59 +332,51 @@ class UartCtrl extends Module {
     txFifo.io.deq.ready := false.B
     io.tx := true.B
 
-    if (sim) {
-        // 仿真时直接printf，不再控制io.tx
-        when(txFifo.io.deq.valid) {
-            printf("%c", txFifo.io.deq.bits)
-            txFifo.io.deq.ready := true.B
+    switch(txState) {
+        is(tsIdle) {
+            io.tx := true.B
+            when(txFifo.io.deq.valid) {
+                if(sim) { printf("%c", txFifo.io.deq.bits) }
+                txState := tsStart
+                txShiftReg := txFifo.io.deq.bits
+                txFifo.io.deq.ready := true.B
+                txBaudCnt := 0.U
+            }
         }
-    } else {
-        // 真正硬件时继续原串口逻辑
-        switch(txState) {
-            is(tsIdle) {
-                io.tx := true.B
-                when(txFifo.io.deq.valid) {
-                    txState := tsStart
-                    txShiftReg := txFifo.io.deq.bits
-                    txFifo.io.deq.ready := true.B
-                    txBaudCnt := 0.U
-                }
+        is(tsStart) {
+            io.tx := false.B // 起始位
+            when(txBaudCnt === baudCntMax - 1.U) {
+                txBaudCnt := 0.U
+                txBitCnt := 0.U
+                txState := tsData
+            } .otherwise {
+                txBaudCnt := txBaudCnt + 1.U
             }
-            is(tsStart) {
-                io.tx := false.B // 起始位
-                when(txBaudCnt === baudCntMax - 1.U) {
-                    txBaudCnt := 0.U
-                    txBitCnt := 0.U
-                    txState := tsData
-                } .otherwise {
-                    txBaudCnt := txBaudCnt + 1.U
-                }
+        }
+        is(tsData) {
+            io.tx := txShiftReg(txBitCnt)
+            when(txBaudCnt === baudCntMax - 1.U) {
+                txBaudCnt := 0.U
+                when(txBitCnt === 7.U) { txState := tsStop }
+                .otherwise { txBitCnt := txBitCnt + 1.U }
+            } .otherwise {
+                txBaudCnt := txBaudCnt + 1.U
             }
-            is(tsData) {
-                io.tx := txShiftReg(txBitCnt)
-                when(txBaudCnt === baudCntMax - 1.U) {
-                    txBaudCnt := 0.U
-                    when(txBitCnt === 7.U) { txState := tsStop }
-                    .otherwise { txBitCnt := txBitCnt + 1.U }
-                } .otherwise {
-                    txBaudCnt := txBaudCnt + 1.U
-                }
-            }
-            is(tsStop) {
-                io.tx := true.B // 停止位
-                when(txBaudCnt === baudCntMax - 1.U) {
-                    txBaudCnt := 0.U
-                    txState := tsIdle
-                } .otherwise {
-                    txBaudCnt := txBaudCnt + 1.U
-                }
+        }
+        is(tsStop) {
+            io.tx := true.B // 停止位
+            when(txBaudCnt === baudCntMax - 1.U) {
+                txBaudCnt := 0.U
+                txState := tsIdle
+            } .otherwise {
+                txBaudCnt := txBaudCnt + 1.U
             }
         }
     }
 }
 
 
-// OLED显示内容输出外设，真正控制OLED屏幕的代码在Verilog模块库里
+// OLED显示内容输出外设，真正控制OLED屏幕的代码在Verilog里
 class OledCtrl extends Module {
     val io = IO(new Bundle {
         val bus  = new DBusPortIO

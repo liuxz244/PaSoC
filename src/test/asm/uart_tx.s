@@ -39,5 +39,5 @@ main:
 	addi	sp,sp,16
 	jr	ra
 	.size	main, .-main
-	.ident	"GCC: (g1b306039ac4) 15.1.0"
+	.ident	"GCC: () 15.1.0"
 	.section	.note.GNU-stack,"",@progbits

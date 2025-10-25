@@ -1265,5 +1265,5 @@ main:
 	.size	main, .-main
 	.local	last_cmd.0
 	.comm	last_cmd.0,32,4
-	.ident	"GCC: (g1b306039ac4) 15.1.0"
+	.ident	"GCC: () 15.1.0"
 	.section	.note.GNU-stack,"",@progbits

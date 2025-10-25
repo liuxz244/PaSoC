@@ -1,5 +1,5 @@
 
-/tmp/tmp.Ivouprcxe5/bios.elf:     file format elf32-littleriscv
+/tmp/tmp.AXqfvZlADT/bios.elf：     文件格式 elf32-littleriscv
 
 
 Disassembly of section .text:
@@ -1911,12 +1911,8 @@ Disassembly of section .comment:
 00000000 <.comment>:
    0:	3a434347          	.insn	4, 0x3a434347
    4:	2820                	.insn	2, 0x2820
-   6:	33623167          	.insn	4, 0x33623167
-   a:	3630                	.insn	2, 0x3630
-   c:	3330                	.insn	2, 0x3330
-   e:	6139                	.insn	2, 0x6139
-  10:	20293463          	.insn	4, 0x20293463
-  14:	3531                	.insn	2, 0x3531
-  16:	312e                	.insn	2, 0x312e
-  18:	302e                	.insn	2, 0x302e
+   6:	2029                	.insn	2, 0x2029
+   8:	3531                	.insn	2, 0x3531
+   a:	312e                	.insn	2, 0x312e
+   c:	302e                	.insn	2, 0x302e
 	...

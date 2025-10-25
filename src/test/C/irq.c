@@ -26,7 +26,7 @@ void external_irq_handler(void)
 void timer_irq_handler(void) 
 {
     // 重新设置下个定时点
-    timer_init(300LL);
+    timer_init(30000000LL);
     
     // 用户自己的处理
     ++g_tick;
@@ -39,9 +39,9 @@ void timer_irq_handler(void)
 int main(void)
 {
     trap_init();  // 设置trap入口
-    interrupt_init(0, 1);   // 按参数使能中断
+    interrupt_init(1, 1);   // 按参数使能中断
     plic_init((1<<0) | (1<<7)); // 使能外部中断0与7
-    timer_init(200LL);  // 200周期一次
+    timer_init(20000000LL);  // 20000000周期一次
     while (1) {
         // do nothing
     }

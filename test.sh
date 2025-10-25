@@ -2,13 +2,13 @@
 
 # 解析命令行参数
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <run|hex|gpio|uart> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
+    echo "Usage: $0 <run|hex|gpio|nvboard> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
     exit 1
 fi
 
 TestType=$1
 HexName=$2
-freq="50M"
+freq="36M"
 baud="115200"
 rvDebug=false
 
@@ -29,7 +29,7 @@ while [ "$#" -gt 0 ]; do
             shift
             ;;
         *)
-            echo "Usage: $0 <run|hex|gpio|uart> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
+            echo "Usage: $0 <run|hex|gpio|nvboard> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
             exit 1
             ;;
     esac
@@ -54,9 +54,10 @@ function Set-EnvAndRun {
         export PASOC_SIM="0"
         export PASOC_BAUD_RATE="$baud"
     else
-        export PASOC_CLOCK_FREQ=200000
+        # nvboard规定频率必须是波特率的16倍
+        export PASOC_CLOCK_FREQ=1600
         export PASOC_SIM="1"
-        export PASOC_BAUD_RATE=115200
+        export PASOC_BAUD_RATE=100
     fi
 
     eval $CommandBlock
@@ -72,9 +73,9 @@ case $TestType in
     "run")
         rm -f "PaSoC.sv" "PaSoC.v"
         clear
-        Set-EnvAndRun 'sbt run'
+        Set-EnvAndRun 'sbt "runMain PaSoC.Main"'
         ;;
-    "hex")
+    "sim")
         rm -f test_run_dir/Hex_Test_should_pass/PaSoCsim.*
         clear
         Set-EnvAndRun 'sbt "testOnly PaSoC.HexTest"'
@@ -84,13 +85,14 @@ case $TestType in
         clear
         Set-EnvAndRun 'sbt "testOnly PaSoC.GpioTest"'
         ;;
-    "uart")
-        rm -f test_run_dir/Uart_Test_should_pass/PaSoCsim.*
+    "nvboard")
+        rm -f "nvboard/PaSoCsim.sv"
         clear
-        Set-EnvAndRun 'sbt "testOnly PaSoC.UartTest"'
+        Set-EnvAndRun 'sbt "runMain PaSoC.nvboard"'
+        mv "PaSoCsim.sv" "nvboard/PaSoCsim.sv"
         ;;
     *)
-        echo "Usage: $0 <run|hex|gpio|uart> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
+        echo "Usage: $0 <run|hex|gpio|nvboard> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
         exit 1
         ;;
 esac

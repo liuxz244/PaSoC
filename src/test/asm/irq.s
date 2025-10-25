@@ -1,6 +1,6 @@
 	.file	"irq.c"
 	.option nopic
-	.attribute arch, "rv32i2p1_zicsr2p0"
+	.attribute arch, "rv32i2p1_m2p0_zicsr2p0_zmmul1p0"
 	.attribute unaligned_access, 0
 	.attribute stack_align, 16
 	.text
@@ -77,7 +77,8 @@ timer_irq_handler:
 	sw	ra,12(sp)
 	sw	s0,8(sp)
 	addi	s0,sp,16
-	li	a0,300
+	li	a0,40001536
+	addi	a0,a0,-1536
 	li	a1,0
 	call	timer_init
 	lui	a5,%hi(g_tick)
@@ -111,15 +112,16 @@ main:
 	addi	s0,sp,16
 	call	trap_init
 	li	a1,1
-	li	a0,0
+	li	a0,1
 	call	interrupt_init
 	li	a0,129
 	call	plic_init
-	li	a0,200
+	li	a0,20000768
+	addi	a0,a0,-768
 	li	a1,0
 	call	timer_init
 .L8:
 	j	.L8
 	.size	main, .-main
-	.ident	"GCC: (g1b306039ac4) 15.1.0"
+	.ident	"GCC: () 15.1.0"
 	.section	.note.GNU-stack,"",@progbits

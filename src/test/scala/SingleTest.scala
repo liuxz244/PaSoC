@@ -28,21 +28,6 @@ object UartTestUtils {
         pokeRx(1) // idle
         c.clock.step(baudPeriod)
     }
-
-    def sendString(dut: PaSoCsim, str: String): Int = {
-        var localStep = 0
-        for(ch <- str) {
-            dut.io.rx_flag.poke(true.B)
-            dut.io.rx_data.poke(ch.toInt.U)
-            dut.clock.step()
-            localStep += 1
-            dut.io.rx_flag.poke(false.B)
-            dut.clock.step()
-            localStep += 1
-        }
-        localStep
-    }
-
 }
 
 
