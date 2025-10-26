@@ -1,5 +1,5 @@
 
-/tmp/tmp.tdxzNPv6zO/irq.elf：     文件格式 elf32-littleriscv
+/tmp/tmp.Iz9Jbw1D9G/irq.elf：     文件格式 elf32-littleriscv
 
 
 Disassembly of section .text:
@@ -328,7 +328,7 @@ Disassembly of section .text:
  4a8:	00812c23          	sw	s0,24(sp)
  4ac:	02010413          	addi	s0,sp,32
  4b0:	100007b7          	lui	a5,0x10000
- 4b4:	01478513          	addi	a0,a5,20 # 10000014 <STACK_TOP+0xfff8014>
+ 4b4:	03078513          	addi	a0,a5,48 # 10000030 <STACK_TOP+0xfff8030>
  4b8:	ba9ff0ef          	jal	60 <print_str>
  4bc:	500007b7          	lui	a5,0x50000
  4c0:	00c78793          	addi	a5,a5,12 # 5000000c <_stack_top+0xfff800c>
@@ -341,11 +341,11 @@ Disassembly of section .text:
  4dc:	00800793          	li	a5,8
  4e0:	00f71a63          	bne	a4,a5,4f4 <external_irq_handler+0x54>
  4e4:	100007b7          	lui	a5,0x10000
- 4e8:	02c78513          	addi	a0,a5,44 # 1000002c <STACK_TOP+0xfff802c>
+ 4e8:	04878513          	addi	a0,a5,72 # 10000048 <STACK_TOP+0xfff8048>
  4ec:	b75ff0ef          	jal	60 <print_str>
  4f0:	0140006f          	j	504 <external_irq_handler+0x64>
  4f4:	100007b7          	lui	a5,0x10000
- 4f8:	03478513          	addi	a0,a5,52 # 10000034 <STACK_TOP+0xfff8034>
+ 4f8:	05078513          	addi	a0,a5,80 # 10000050 <STACK_TOP+0xfff8050>
  4fc:	b65ff0ef          	jal	60 <print_str>
  500:	00000013          	nop
  504:	500007b7          	lui	a5,0x50000
@@ -363,8 +363,8 @@ Disassembly of section .text:
  52c:	00112623          	sw	ra,12(sp)
  530:	00812423          	sw	s0,8(sp)
  534:	01010413          	addi	s0,sp,16
- 538:	02626537          	lui	a0,0x2626
- 53c:	a0050513          	addi	a0,a0,-1536 # 2625a00 <STACK_TOP+0x261da00>
+ 538:	01c9c537          	lui	a0,0x1c9c
+ 53c:	38050513          	addi	a0,a0,896 # 1c9c380 <STACK_TOP+0x1c94380>
  540:	00000593          	li	a1,0
  544:	dcdff0ef          	jal	310 <timer_init>
  548:	400007b7          	lui	a5,0x40000
@@ -373,7 +373,7 @@ Disassembly of section .text:
  554:	400007b7          	lui	a5,0x40000
  558:	00e7a023          	sw	a4,0(a5) # 40000000 <g_tick>
  55c:	100007b7          	lui	a5,0x10000
- 560:	03c78513          	addi	a0,a5,60 # 1000003c <STACK_TOP+0xfff803c>
+ 560:	05878513          	addi	a0,a5,88 # 10000058 <STACK_TOP+0xfff8058>
  564:	afdff0ef          	jal	60 <print_str>
  568:	400007b7          	lui	a5,0x40000
  56c:	0007a783          	lw	a5,0(a5) # 40000000 <g_tick>
@@ -389,21 +389,41 @@ Disassembly of section .text:
  594:	00008067          	ret
 
 00000598 <main>:
- 598:	ff010113          	addi	sp,sp,-16
- 59c:	00112623          	sw	ra,12(sp)
- 5a0:	00812423          	sw	s0,8(sp)
- 5a4:	01010413          	addi	s0,sp,16
- 5a8:	c7dff0ef          	jal	224 <trap_init>
- 5ac:	00100593          	li	a1,1
- 5b0:	00100513          	li	a0,1
- 5b4:	c9dff0ef          	jal	250 <interrupt_init>
- 5b8:	08100513          	li	a0,129
- 5bc:	dc9ff0ef          	jal	384 <plic_init>
- 5c0:	01313537          	lui	a0,0x1313
- 5c4:	d0050513          	addi	a0,a0,-768 # 1312d00 <STACK_TOP+0x130ad00>
- 5c8:	00000593          	li	a1,0
- 5cc:	d45ff0ef          	jal	310 <timer_init>
- 5d0:	0000006f          	j	5d0 <main+0x38>
+ 598:	fe010113          	addi	sp,sp,-32
+ 59c:	00112e23          	sw	ra,28(sp)
+ 5a0:	00812c23          	sw	s0,24(sp)
+ 5a4:	02010413          	addi	s0,sp,32
+ 5a8:	100007b7          	lui	a5,0x10000
+ 5ac:	06c78513          	addi	a0,a5,108 # 1000006c <STACK_TOP+0xfff806c>
+ 5b0:	ab1ff0ef          	jal	60 <print_str>
+ 5b4:	c71ff0ef          	jal	224 <trap_init>
+ 5b8:	00100593          	li	a1,1
+ 5bc:	00100513          	li	a0,1
+ 5c0:	c91ff0ef          	jal	250 <interrupt_init>
+ 5c4:	08100513          	li	a0,129
+ 5c8:	dbdff0ef          	jal	384 <plic_init>
+ 5cc:	01313537          	lui	a0,0x1313
+ 5d0:	d0050513          	addi	a0,a0,-768 # 1312d00 <STACK_TOP+0x130ad00>
+ 5d4:	00000593          	li	a1,0
+ 5d8:	d39ff0ef          	jal	310 <timer_init>
+ 5dc:	fe042623          	sw	zero,-20(s0)
+ 5e0:	fec42783          	lw	a5,-20(s0)
+ 5e4:	00178793          	addi	a5,a5,1
+ 5e8:	fef42623          	sw	a5,-20(s0)
+ 5ec:	fec42703          	lw	a4,-20(s0)
+ 5f0:	431be7b7          	lui	a5,0x431be
+ 5f4:	e8378793          	addi	a5,a5,-381 # 431bde83 <_stack_top+0x31b5e83>
+ 5f8:	02f737b3          	mulhu	a5,a4,a5
+ 5fc:	0127d793          	srli	a5,a5,0x12
+ 600:	000f46b7          	lui	a3,0xf4
+ 604:	24068693          	addi	a3,a3,576 # f4240 <STACK_TOP+0xec240>
+ 608:	02d787b3          	mul	a5,a5,a3
+ 60c:	40f707b3          	sub	a5,a4,a5
+ 610:	fc0798e3          	bnez	a5,5e0 <main+0x48>
+ 614:	100007b7          	lui	a5,0x10000
+ 618:	08878513          	addi	a0,a5,136 # 10000088 <STACK_TOP+0xfff8088>
+ 61c:	a45ff0ef          	jal	60 <print_str>
+ 620:	fc1ff06f          	j	5e0 <main+0x48>
 
 Disassembly of section .rodata:
 
@@ -417,33 +437,62 @@ Disassembly of section .rodata:
 1000000c:	46454443          	.insn	4, 0x46454443
 10000010:	0000                	.insn	2, 0x0000
 10000012:	0000                	.insn	2, 0x0000
-10000014:	7845                	.insn	2, 0x7845
-10000016:	6574                	.insn	2, 0x6574
-10000018:	6e72                	.insn	2, 0x6e72
-1000001a:	6c61                	.insn	2, 0x6c61
-1000001c:	4920                	.insn	2, 0x4920
-1000001e:	746e                	.insn	2, 0x746e
-10000020:	7265                	.insn	2, 0x7265
-10000022:	7572                	.insn	2, 0x7572
-10000024:	7470                	.insn	2, 0x7470
-10000026:	203a                	.insn	2, 0x203a
-10000028:	0000                	.insn	2, 0x0000
-1000002a:	0000                	.insn	2, 0x0000
-1000002c:	4f495047          	.insn	4, 0x4f495047
-10000030:	000a                	.insn	2, 0x000a
-10000032:	0000                	.insn	2, 0x0000
-10000034:	6568744f          	.insn	4, 0x6568744f
-10000038:	0a72                	.insn	2, 0x0a72
-1000003a:	0000                	.insn	2, 0x0000
-1000003c:	6954                	.insn	2, 0x6954
-1000003e:	656d                	.insn	2, 0x656d
-10000040:	2072                	.insn	2, 0x2072
-10000042:	6e49                	.insn	2, 0x6e49
-10000044:	6574                	.insn	2, 0x6574
-10000046:	7272                	.insn	2, 0x7272
-10000048:	7075                	.insn	2, 0x7075
-1000004a:	3a74                	.insn	2, 0x3a74
-1000004c:	0020                	.insn	2, 0x0020
+10000014:	0000                	.insn	2, 0x0000
+10000016:	00ff ff00 0000 00ff 	.insn	10, 0x00ff0000ff0000ff
+1000001e:	0000 
+10000020:	ff00                	.insn	2, 0xff00
+10000022:	00ff 00ff 00ff ffff 	.insn	10, 0xffff00ff00ff00ff
+1000002a:	0000 
+1000002c:	ffff                	.insn	2, 0xffff
+1000002e:	00ff 7845 6574 6e72 	.insn	10, 0x6c616e726574784500ff
+10000036:	6c61 
+10000038:	4920                	.insn	2, 0x4920
+1000003a:	746e                	.insn	2, 0x746e
+1000003c:	7265                	.insn	2, 0x7265
+1000003e:	7572                	.insn	2, 0x7572
+10000040:	7470                	.insn	2, 0x7470
+10000042:	203a                	.insn	2, 0x203a
+10000044:	0000                	.insn	2, 0x0000
+10000046:	0000                	.insn	2, 0x0000
+10000048:	4f495047          	.insn	4, 0x4f495047
+1000004c:	000a                	.insn	2, 0x000a
+1000004e:	0000                	.insn	2, 0x0000
+10000050:	6568744f          	.insn	4, 0x6568744f
+10000054:	0a72                	.insn	2, 0x0a72
+10000056:	0000                	.insn	2, 0x0000
+10000058:	6954                	.insn	2, 0x6954
+1000005a:	656d                	.insn	2, 0x656d
+1000005c:	2072                	.insn	2, 0x2072
+1000005e:	6e49                	.insn	2, 0x6e49
+10000060:	6574                	.insn	2, 0x6574
+10000062:	7272                	.insn	2, 0x7272
+10000064:	7075                	.insn	2, 0x7075
+10000066:	3a74                	.insn	2, 0x3a74
+10000068:	0020                	.insn	2, 0x0020
+1000006a:	0000                	.insn	2, 0x0000
+1000006c:	6e49                	.insn	2, 0x6e49
+1000006e:	6574                	.insn	2, 0x6574
+10000070:	7272                	.insn	2, 0x7272
+10000072:	7075                	.insn	2, 0x7075
+10000074:	2074                	.insn	2, 0x2074
+10000076:	6e69                	.insn	2, 0x6e69
+10000078:	7469                	.insn	2, 0x7469
+1000007a:	6169                	.insn	2, 0x6169
+1000007c:	696c                	.insn	2, 0x696c
+1000007e:	697a                	.insn	2, 0x697a
+10000080:	676e                	.insn	2, 0x676e
+10000082:	2e2e                	.insn	2, 0x2e2e
+10000084:	0a2e                	.insn	2, 0x0a2e
+10000086:	0000                	.insn	2, 0x0000
+10000088:	614d                	.insn	2, 0x614d
+1000008a:	6e69                	.insn	2, 0x6e69
+1000008c:	6c20                	.insn	2, 0x6c20
+1000008e:	20706f6f          	jal	t5,10006a94 <STACK_TOP+0xfffea94>
+10000092:	7572                	.insn	2, 0x7572
+10000094:	6e6e                	.insn	2, 0x6e6e
+10000096:	6e69                	.insn	2, 0x6e69
+10000098:	2e2e2e67          	.insn	4, 0x2e2e2e67
+1000009c:	000a                	.insn	2, 0x000a
 
 Disassembly of section .riscv.attributes:
 

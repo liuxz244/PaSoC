@@ -5,7 +5,7 @@
 typedef struct {
     char main[16];    // 主命令, 如 "gpio"
     char subcmd[16];  // 子命令, 如 "in", "out"
-    char param1[16];   // 参数, 如 "0x1234"
+    char param1[16];  // 参数, 如 "0x1234"
     char param2[16];
 } Command;
 
@@ -326,6 +326,130 @@ void handle_mem_command(const Command *cmd)
 
 
 /**
+ * @brief 处理PWM相关命令
+ *
+ * 格式: pwm set <channel> <duty>
+ *   - channel: 通道号 (0 ~ PWM_CHANNELS-1)
+ *   - duty:    占空比值 (0 ~ PWM_MAX)，可用十六进制或十进制
+ */
+void handle_pwm_command(const Command *cmd)
+{
+    if (strcmp(cmd->subcmd, "set") == 0) {
+        if (cmd->param1[0] == 0 || cmd->param2[0] == 0) {
+            print_str("\r\nError: incomplete args. Usage: pwm set <channel> <duty>\r\n");
+            return;
+        }
+
+        uint32_t ch_val = 0, duty_val = 0;
+
+        // 尝试十六进制解析
+        if (parse_hex(cmd->param1, &ch_val) != 0) {
+            // 非十六进制则尝试十进制
+            if (parse_str_uint(cmd->param1, &ch_val) != 0) {
+                print_str("\r\nError: invalid channel argument\r\n");
+                return;
+            }
+        }
+        if (parse_hex(cmd->param2, &duty_val) != 0) {
+            if (parse_str_uint(cmd->param2, &duty_val) != 0) {
+                print_str("\r\nError: invalid duty argument\r\n");
+                return;
+            }
+        }
+
+        if (ch_val >= PWM_CHANNELS) {
+            print_str("\r\nError: channel out of range\r\n");
+            return;
+        }
+
+        pwm_write_duty(ch_val, duty_val);
+        print_str("\r\nPWM channel ");
+        print_hex(ch_val, 2);
+        print_str(" duty set to 0x");
+        print_hex(duty_val, 8);
+        print_str("\r\n");
+    } else {
+        print_str("\r\nError: unknown subcmd. Usage: pwm set <channel> <duty>\r\n");
+    }
+}
+
+
+/**
+ * @brief 处理 VGA 相关命令
+ *
+ * 格式：
+ *   vga clear <hex_color>    —— 清屏为指定颜色，例如 vga clear 0x112233
+ *   vga bars                 —— 显示彩条图
+ */
+void handle_vga_command(const Command *cmd)
+{
+    if (strcmp(cmd->subcmd, "clear") == 0) {
+        uint32_t color;
+        if (cmd->param1[0] == 0) {
+            color = 0x000000;  // 默认黑色
+        } else if (parse_hex(cmd->param1, &color) != 0) {
+            print_str("\r\nError: invalid color format. Usage: vga clear 0x112233\r\n");
+            return;
+        }
+
+        uint8_t r = (color >> 16) & 0xFF;
+        uint8_t g = (color >> 8)  & 0xFF;
+        uint8_t b = color & 0xFF;
+
+        vga_clear(r, g, b);
+
+        print_str("\r\nVGA cleared with color: 0x");
+        print_hex(color, 6);
+        print_str("\r\n");
+    }
+    else if (strcmp(cmd->subcmd, "bars") == 0) {
+        vga_draw_color_bars();
+        print_str("\r\nVGA color bars drawn!\r\n");
+    }
+    else {
+        print_str("\r\nError: unknown VGA subcmd. Usage:\r\n"
+                  "    vga clear <hex_color>   e.g. vga clear 0x112233\r\n"
+                  "    vga bars\r\n");
+    }
+}
+
+
+/**
+ * @brief 处理定时器相关命令
+ *
+ * 格式: timer set <interval>
+ *   - interval: 定时器中断间隔周期数（支持十六进制或十进制）
+ */
+void handle_timer_command(const Command *cmd)
+{
+    if (strcmp(cmd->subcmd, "set") == 0) {
+        if (cmd->param1[0] == 0) {
+            print_str("\r\nUsage: timer set <interval>\r\n");
+            return;
+        }
+
+        uint32_t interval = 0;
+        // 支持0x十六进制或十进制值
+        if (parse_hex(cmd->param1, &interval) != 0) {
+            if (parse_str_uint(cmd->param1, &interval) != 0) {
+                print_str("\r\nError: invalid interval value\r\n");
+                return;
+            }
+        }
+
+        timer_init((unsigned long long)interval);
+
+        print_str("\r\nTimer interrupt set! Will trigger after ");
+        print_hex(interval, 8);
+        print_str(" cycles\r\n");
+    }
+    else {
+        print_str("\r\nUnknown subcmd. Usage: timer set <interval>\r\n");
+    }
+}
+
+
+/**
  * @brief 根据主命令调用具体处理函数。
  *
  * 当前支持 "help"、"gpio"、"mem" 命令，根据cmd->main选择对应处理流程。
@@ -341,10 +465,22 @@ void dispatch_command(const Command *cmd)
     else if(strcmp(cmd->main, "mem")==0) {
         handle_mem_command(cmd);
     }
+    else if(strcmp(cmd->main, "pwm")==0) {
+        handle_pwm_command(cmd);
+    }
+    else if (strcmp(cmd->main, "vga") == 0) {
+        handle_vga_command(cmd);
+    }
+    else if (strcmp(cmd->main, "timer") == 0) {
+        handle_timer_command(cmd);
+    }
     else if(strcmp(cmd->main, "help")==0) {
         print_str("\r\nSupported Command:\r\n"
                   "    gpio <in|out> [hex_value]\r\n"
-                  "    mem <read|write[8|16|32]> <addr> [hex_value]\r\n");
+                  "    mem <read|write[8|16|32]> <addr> [hex_value]\r\n"
+                  "    pwm set <channel> <duty>\r\n"
+                  "    vga <clear|bars> [hex_color]\r\n"
+                  "    timer set <interval>\r\n");
     }
     else {
         print_str("\r\nUnknown command. Type 'help'\r\n");
@@ -382,10 +518,31 @@ void command_handler(void)
 }
 
 
+// 中断处理函数
+void external_irq_handler(void)
+{
+    print_str("\r\n[IRQ] External interrupt triggered!\r\n");
+}
+void timer_irq_handler(void)
+{
+    // 打印触发信息
+    print_str("\r\n[IRQ] Timer interrupt triggered!\r\n");
+    unsigned int mepc = read_csr(mepc);
+    print_str("[IRQ] mepc=");
+    print_hex(mepc,8);
+    print_str("\r\n");
+    
+    timer_init(9999999999LL);
+}
+
+
 // 上电运行的main函数
 int main()
-{
-    print_str("Welcome to PaSoC BIOS console!\r\n");
+{   
+    trap_init();   // 初始化trap向量和中断使能
+    interrupt_init(1, 0);  // 仅启用定时器中断
+
+    print_str("Welcome to PaSoC UART console!\r\n");
 
     while (1) {
         command_handler();

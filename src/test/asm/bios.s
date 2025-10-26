@@ -1080,18 +1080,368 @@ handle_mem_command:
 	.section	.rodata
 	.align	2
 .LC35:
-	.string	"gpio"
+	.string	"set"
 	.align	2
 .LC36:
-	.string	"mem"
+	.string	"\r\nError: incomplete args. Usage: pwm set <channel> <duty>\r\n"
 	.align	2
 .LC37:
-	.string	"help"
+	.string	"\r\nError: invalid channel argument\r\n"
 	.align	2
 .LC38:
-	.string	"\r\nSupported Command:\r\n    gpio <in|out> [hex_value]\r\n    mem <read|write[8|16|32]> <addr> [hex_value]\r\n"
+	.string	"\r\nError: invalid duty argument\r\n"
 	.align	2
 .LC39:
+	.string	"\r\nError: channel out of range\r\n"
+	.align	2
+.LC40:
+	.string	"\r\nPWM channel "
+	.align	2
+.LC41:
+	.string	" duty set to 0x"
+	.align	2
+.LC42:
+	.string	"\r\nError: unknown subcmd. Usage: pwm set <channel> <duty>\r\n"
+	.text
+	.align	2
+	.globl	handle_pwm_command
+	.type	handle_pwm_command, @function
+handle_pwm_command:
+	addi	sp,sp,-48
+	sw	ra,44(sp)
+	sw	s0,40(sp)
+	addi	s0,sp,48
+	sw	a0,-36(s0)
+	lw	a5,-36(s0)
+	addi	a4,a5,16
+	lui	a5,%hi(.LC35)
+	addi	a1,a5,%lo(.LC35)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L97
+	lw	a5,-36(s0)
+	lbu	a5,32(a5)
+	beq	a5,zero,.L98
+	lw	a5,-36(s0)
+	lbu	a5,48(a5)
+	bne	a5,zero,.L99
+.L98:
+	lui	a5,%hi(.LC36)
+	addi	a0,a5,%lo(.LC36)
+	call	print_str
+	j	.L96
+.L99:
+	sw	zero,-20(s0)
+	sw	zero,-24(s0)
+	lw	a5,-36(s0)
+	addi	a5,a5,32
+	addi	a4,s0,-20
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	beq	a5,zero,.L101
+	lw	a5,-36(s0)
+	addi	a5,a5,32
+	addi	a4,s0,-20
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_str_uint
+	mv	a5,a0
+	beq	a5,zero,.L101
+	lui	a5,%hi(.LC37)
+	addi	a0,a5,%lo(.LC37)
+	call	print_str
+	j	.L96
+.L101:
+	lw	a5,-36(s0)
+	addi	a5,a5,48
+	addi	a4,s0,-24
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	beq	a5,zero,.L102
+	lw	a5,-36(s0)
+	addi	a5,a5,48
+	addi	a4,s0,-24
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_str_uint
+	mv	a5,a0
+	beq	a5,zero,.L102
+	lui	a5,%hi(.LC38)
+	addi	a0,a5,%lo(.LC38)
+	call	print_str
+	j	.L96
+.L102:
+	lw	a4,-20(s0)
+	li	a5,1
+	bleu	a4,a5,.L103
+	lui	a5,%hi(.LC39)
+	addi	a0,a5,%lo(.LC39)
+	call	print_str
+	j	.L96
+.L103:
+	lw	a5,-20(s0)
+	lw	a4,-24(s0)
+	mv	a1,a4
+	mv	a0,a5
+	call	pwm_write_duty
+	lui	a5,%hi(.LC40)
+	addi	a0,a5,%lo(.LC40)
+	call	print_str
+	lw	a5,-20(s0)
+	li	a1,2
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC41)
+	addi	a0,a5,%lo(.LC41)
+	call	print_str
+	lw	a5,-24(s0)
+	li	a1,8
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC2)
+	addi	a0,a5,%lo(.LC2)
+	call	print_str
+	j	.L96
+.L97:
+	lui	a5,%hi(.LC42)
+	addi	a0,a5,%lo(.LC42)
+	call	print_str
+.L96:
+	lw	ra,44(sp)
+	lw	s0,40(sp)
+	addi	sp,sp,48
+	jr	ra
+	.size	handle_pwm_command, .-handle_pwm_command
+	.section	.rodata
+	.align	2
+.LC43:
+	.string	"clear"
+	.align	2
+.LC44:
+	.string	"\r\nError: invalid color format. Usage: vga clear 0x112233\r\n"
+	.align	2
+.LC45:
+	.string	"\r\nVGA cleared with color: 0x"
+	.align	2
+.LC46:
+	.string	"bars"
+	.align	2
+.LC47:
+	.string	"\r\nVGA color bars drawn!\r\n"
+	.align	2
+.LC48:
+	.string	"\r\nError: unknown VGA subcmd. Usage:\r\n    vga clear <hex_color>   e.g. vga clear 0x112233\r\n    vga bars\r\n"
+	.text
+	.align	2
+	.globl	handle_vga_command
+	.type	handle_vga_command, @function
+handle_vga_command:
+	addi	sp,sp,-48
+	sw	ra,44(sp)
+	sw	s0,40(sp)
+	addi	s0,sp,48
+	sw	a0,-36(s0)
+	lw	a5,-36(s0)
+	addi	a4,a5,16
+	lui	a5,%hi(.LC43)
+	addi	a1,a5,%lo(.LC43)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L106
+	lw	a5,-36(s0)
+	lbu	a5,32(a5)
+	bne	a5,zero,.L107
+	sw	zero,-24(s0)
+	j	.L108
+.L107:
+	lw	a5,-36(s0)
+	addi	a5,a5,32
+	addi	a4,s0,-24
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	beq	a5,zero,.L108
+	lui	a5,%hi(.LC44)
+	addi	a0,a5,%lo(.LC44)
+	call	print_str
+	j	.L105
+.L108:
+	lw	a5,-24(s0)
+	srli	a5,a5,16
+	sb	a5,-17(s0)
+	lw	a5,-24(s0)
+	srli	a5,a5,8
+	sb	a5,-18(s0)
+	lw	a5,-24(s0)
+	sb	a5,-19(s0)
+	lbu	a3,-19(s0)
+	lbu	a4,-18(s0)
+	lbu	a5,-17(s0)
+	mv	a2,a3
+	mv	a1,a4
+	mv	a0,a5
+	call	vga_clear
+	lui	a5,%hi(.LC45)
+	addi	a0,a5,%lo(.LC45)
+	call	print_str
+	lw	a5,-24(s0)
+	li	a1,6
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC2)
+	addi	a0,a5,%lo(.LC2)
+	call	print_str
+	j	.L105
+.L106:
+	lw	a5,-36(s0)
+	addi	a4,a5,16
+	lui	a5,%hi(.LC46)
+	addi	a1,a5,%lo(.LC46)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L110
+	call	vga_draw_color_bars
+	lui	a5,%hi(.LC47)
+	addi	a0,a5,%lo(.LC47)
+	call	print_str
+	j	.L105
+.L110:
+	lui	a5,%hi(.LC48)
+	addi	a0,a5,%lo(.LC48)
+	call	print_str
+.L105:
+	lw	ra,44(sp)
+	lw	s0,40(sp)
+	addi	sp,sp,48
+	jr	ra
+	.size	handle_vga_command, .-handle_vga_command
+	.section	.rodata
+	.align	2
+.LC49:
+	.string	"\r\nUsage: timer set <interval>\r\n"
+	.align	2
+.LC50:
+	.string	"\r\nError: invalid interval value\r\n"
+	.align	2
+.LC51:
+	.string	"\r\nTimer interrupt set! Will trigger after "
+	.align	2
+.LC52:
+	.string	" cycles\r\n"
+	.align	2
+.LC53:
+	.string	"\r\nUnknown subcmd. Usage: timer set <interval>\r\n"
+	.text
+	.align	2
+	.globl	handle_timer_command
+	.type	handle_timer_command, @function
+handle_timer_command:
+	addi	sp,sp,-48
+	sw	ra,44(sp)
+	sw	s0,40(sp)
+	sw	s2,36(sp)
+	sw	s3,32(sp)
+	addi	s0,sp,48
+	sw	a0,-36(s0)
+	lw	a5,-36(s0)
+	addi	a4,a5,16
+	lui	a5,%hi(.LC35)
+	addi	a1,a5,%lo(.LC35)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L112
+	lw	a5,-36(s0)
+	lbu	a5,32(a5)
+	bne	a5,zero,.L113
+	lui	a5,%hi(.LC49)
+	addi	a0,a5,%lo(.LC49)
+	call	print_str
+	j	.L111
+.L113:
+	sw	zero,-20(s0)
+	lw	a5,-36(s0)
+	addi	a5,a5,32
+	addi	a4,s0,-20
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_hex
+	mv	a5,a0
+	beq	a5,zero,.L115
+	lw	a5,-36(s0)
+	addi	a5,a5,32
+	addi	a4,s0,-20
+	mv	a1,a4
+	mv	a0,a5
+	call	parse_str_uint
+	mv	a5,a0
+	beq	a5,zero,.L115
+	lui	a5,%hi(.LC50)
+	addi	a0,a5,%lo(.LC50)
+	call	print_str
+	j	.L111
+.L115:
+	lw	a5,-20(s0)
+	mv	s2,a5
+	li	s3,0
+	mv	a0,s2
+	mv	a1,s3
+	call	timer_init
+	lui	a5,%hi(.LC51)
+	addi	a0,a5,%lo(.LC51)
+	call	print_str
+	lw	a5,-20(s0)
+	li	a1,8
+	mv	a0,a5
+	call	print_hex
+	lui	a5,%hi(.LC52)
+	addi	a0,a5,%lo(.LC52)
+	call	print_str
+	j	.L111
+.L112:
+	lui	a5,%hi(.LC53)
+	addi	a0,a5,%lo(.LC53)
+	call	print_str
+.L111:
+	lw	ra,44(sp)
+	lw	s0,40(sp)
+	lw	s2,36(sp)
+	lw	s3,32(sp)
+	addi	sp,sp,48
+	jr	ra
+	.size	handle_timer_command, .-handle_timer_command
+	.section	.rodata
+	.align	2
+.LC54:
+	.string	"gpio"
+	.align	2
+.LC55:
+	.string	"mem"
+	.align	2
+.LC56:
+	.string	"pwm"
+	.align	2
+.LC57:
+	.string	"vga"
+	.align	2
+.LC58:
+	.string	"timer"
+	.align	2
+.LC59:
+	.string	"help"
+	.align	2
+.LC60:
+	.string	"\r\nSupported Command:\r\n    gpio <in|out> [hex_value]\r\n    mem <read|write[8|16|32]> <addr> [hex_value]\r\n    pwm set <channel> <duty>\r\n    vga <clear|bars> [hex_color]\r\n    timer set <interval>\r\n"
+	.align	2
+.LC61:
 	.string	"\r\nUnknown command. Type 'help'\r\n"
 	.text
 	.align	2
@@ -1104,43 +1454,76 @@ dispatch_command:
 	addi	s0,sp,32
 	sw	a0,-20(s0)
 	lw	a4,-20(s0)
-	lui	a5,%hi(.LC35)
-	addi	a1,a5,%lo(.LC35)
+	lui	a5,%hi(.LC54)
+	addi	a1,a5,%lo(.LC54)
 	mv	a0,a4
 	call	strcmp
 	mv	a5,a0
-	bne	a5,zero,.L97
+	bne	a5,zero,.L118
 	lw	a0,-20(s0)
 	call	handle_gpio_command
-	j	.L101
-.L97:
+	j	.L125
+.L118:
 	lw	a4,-20(s0)
-	lui	a5,%hi(.LC36)
-	addi	a1,a5,%lo(.LC36)
+	lui	a5,%hi(.LC55)
+	addi	a1,a5,%lo(.LC55)
 	mv	a0,a4
 	call	strcmp
 	mv	a5,a0
-	bne	a5,zero,.L99
+	bne	a5,zero,.L120
 	lw	a0,-20(s0)
 	call	handle_mem_command
-	j	.L101
-.L99:
+	j	.L125
+.L120:
 	lw	a4,-20(s0)
-	lui	a5,%hi(.LC37)
-	addi	a1,a5,%lo(.LC37)
+	lui	a5,%hi(.LC56)
+	addi	a1,a5,%lo(.LC56)
 	mv	a0,a4
 	call	strcmp
 	mv	a5,a0
-	bne	a5,zero,.L100
-	lui	a5,%hi(.LC38)
-	addi	a0,a5,%lo(.LC38)
+	bne	a5,zero,.L121
+	lw	a0,-20(s0)
+	call	handle_pwm_command
+	j	.L125
+.L121:
+	lw	a4,-20(s0)
+	lui	a5,%hi(.LC57)
+	addi	a1,a5,%lo(.LC57)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L122
+	lw	a0,-20(s0)
+	call	handle_vga_command
+	j	.L125
+.L122:
+	lw	a4,-20(s0)
+	lui	a5,%hi(.LC58)
+	addi	a1,a5,%lo(.LC58)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L123
+	lw	a0,-20(s0)
+	call	handle_timer_command
+	j	.L125
+.L123:
+	lw	a4,-20(s0)
+	lui	a5,%hi(.LC59)
+	addi	a1,a5,%lo(.LC59)
+	mv	a0,a4
+	call	strcmp
+	mv	a5,a0
+	bne	a5,zero,.L124
+	lui	a5,%hi(.LC60)
+	addi	a0,a5,%lo(.LC60)
 	call	print_str
-	j	.L101
-.L100:
-	lui	a5,%hi(.LC39)
-	addi	a0,a5,%lo(.LC39)
+	j	.L125
+.L124:
+	lui	a5,%hi(.LC61)
+	addi	a0,a5,%lo(.LC61)
 	call	print_str
-.L101:
+.L125:
 	nop
 	lw	ra,28(sp)
 	lw	s0,24(sp)
@@ -1149,7 +1532,7 @@ dispatch_command:
 	.size	dispatch_command, .-dispatch_command
 	.section	.rodata
 	.align	2
-.LC40:
+.LC62:
 	.string	"> "
 	.text
 	.align	2
@@ -1160,8 +1543,8 @@ command_handler:
 	sw	ra,124(sp)
 	sw	s0,120(sp)
 	addi	s0,sp,128
-	lui	a5,%hi(.LC40)
-	addi	a0,a5,%lo(.LC40)
+	lui	a5,%hi(.LC62)
+	addi	a0,a5,%lo(.LC62)
 	call	print_str
 	addi	a4,s0,-60
 	lui	a5,%hi(last_cmd.0)
@@ -1171,39 +1554,39 @@ command_handler:
 	call	get_str_with_history
 	sw	zero,-20(s0)
 	sw	zero,-24(s0)
-	j	.L103
-.L106:
+	j	.L127
+.L130:
 	lw	a5,-24(s0)
 	addi	a5,a5,-16
 	add	a5,a5,s0
 	lbu	a4,-44(a5)
 	li	a5,32
-	beq	a4,a5,.L104
+	beq	a4,a5,.L128
 	lw	a5,-24(s0)
 	addi	a5,a5,-16
 	add	a5,a5,s0
 	lbu	a4,-44(a5)
 	li	a5,9
-	beq	a4,a5,.L104
+	beq	a4,a5,.L128
 	li	a5,1
 	sw	a5,-20(s0)
-	j	.L105
-.L104:
+	j	.L129
+.L128:
 	lw	a5,-24(s0)
 	addi	a5,a5,1
 	sw	a5,-24(s0)
-.L103:
+.L127:
 	lw	a5,-24(s0)
 	addi	a5,a5,-16
 	add	a5,a5,s0
 	lbu	a5,-44(a5)
-	bne	a5,zero,.L106
-.L105:
+	bne	a5,zero,.L130
+.L129:
 	lw	a5,-20(s0)
-	beq	a5,zero,.L107
+	beq	a5,zero,.L131
 	sw	zero,-28(s0)
-	j	.L108
-.L110:
+	j	.L132
+.L134:
 	lw	a5,-28(s0)
 	addi	a5,a5,-16
 	add	a5,a5,s0
@@ -1217,18 +1600,18 @@ command_handler:
 	addi	a5,a5,-16
 	add	a5,a5,s0
 	lbu	a5,-44(a5)
-	beq	a5,zero,.L111
+	beq	a5,zero,.L135
 	lw	a5,-28(s0)
 	addi	a5,a5,1
 	sw	a5,-28(s0)
-.L108:
+.L132:
 	lw	a4,-28(s0)
 	li	a5,31
-	bleu	a4,a5,.L110
-	j	.L107
-.L111:
+	bleu	a4,a5,.L134
+	j	.L131
+.L135:
 	nop
-.L107:
+.L131:
 	addi	a4,s0,-124
 	addi	a5,s0,-60
 	mv	a1,a4
@@ -1245,8 +1628,76 @@ command_handler:
 	.size	command_handler, .-command_handler
 	.section	.rodata
 	.align	2
-.LC41:
-	.string	"Welcome to PaSoC BIOS console!\r\n"
+.LC63:
+	.string	"\r\n[IRQ] External interrupt triggered!\r\n"
+	.text
+	.align	2
+	.globl	external_irq_handler
+	.type	external_irq_handler, @function
+external_irq_handler:
+	addi	sp,sp,-16
+	sw	ra,12(sp)
+	sw	s0,8(sp)
+	addi	s0,sp,16
+	lui	a5,%hi(.LC63)
+	addi	a0,a5,%lo(.LC63)
+	call	print_str
+	nop
+	lw	ra,12(sp)
+	lw	s0,8(sp)
+	addi	sp,sp,16
+	jr	ra
+	.size	external_irq_handler, .-external_irq_handler
+	.section	.rodata
+	.align	2
+.LC64:
+	.string	"\r\n[IRQ] Timer interrupt triggered!\r\n"
+	.align	2
+.LC65:
+	.string	"[IRQ] mepc="
+	.text
+	.align	2
+	.globl	timer_irq_handler
+	.type	timer_irq_handler, @function
+timer_irq_handler:
+	addi	sp,sp,-32
+	sw	ra,28(sp)
+	sw	s0,24(sp)
+	addi	s0,sp,32
+	lui	a5,%hi(.LC64)
+	addi	a0,a5,%lo(.LC64)
+	call	print_str
+ #APP
+# 523 "src/test/C/bios.c" 1
+	csrr a5, mepc
+# 0 "" 2
+ #NO_APP
+	sw	a5,-20(s0)
+	lw	a5,-20(s0)
+	sw	a5,-24(s0)
+	lui	a5,%hi(.LC65)
+	addi	a0,a5,%lo(.LC65)
+	call	print_str
+	li	a1,8
+	lw	a0,-24(s0)
+	call	print_hex
+	lui	a5,%hi(.LC2)
+	addi	a0,a5,%lo(.LC2)
+	call	print_str
+	li	a0,1410064384
+	addi	a0,a0,1023
+	li	a1,2
+	call	timer_init
+	nop
+	lw	ra,28(sp)
+	lw	s0,24(sp)
+	addi	sp,sp,32
+	jr	ra
+	.size	timer_irq_handler, .-timer_irq_handler
+	.section	.rodata
+	.align	2
+.LC66:
+	.string	"Welcome to PaSoC UART console!\r\n"
 	.text
 	.align	2
 	.globl	main
@@ -1256,12 +1707,16 @@ main:
 	sw	ra,12(sp)
 	sw	s0,8(sp)
 	addi	s0,sp,16
-	lui	a5,%hi(.LC41)
-	addi	a0,a5,%lo(.LC41)
+	call	trap_init
+	li	a1,0
+	li	a0,1
+	call	interrupt_init
+	lui	a5,%hi(.LC66)
+	addi	a0,a5,%lo(.LC66)
 	call	print_str
-.L113:
+.L139:
 	call	command_handler
-	j	.L113
+	j	.L139
 	.size	main, .-main
 	.local	last_cmd.0
 	.comm	last_cmd.0,32,4

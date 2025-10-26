@@ -257,7 +257,7 @@ void plic_init(uint32_t irq_mask)
  * @see   timer_irq_handler
  * @see   external_irq_handler
  */
-void __attribute__((interrupt)) trap_handler(void)
+__attribute__((interrupt)) void trap_handler(void)
 {
     unsigned int mcause = read_csr(mcause);
     if ((mcause & 0x80000000) && ((mcause & 0x1F) == 7))  {
@@ -528,4 +528,65 @@ void vga_draw_color_bars(void)
             vmem[y * VGA_WIDTH + x] = color;
         }
     }
+}
+
+/**
+ * @brief 写入指定通道的PWM占空比
+ *
+ * @param channel PWM通道索引（0 ~ PWM_CHANNELS-1）
+ * @param duty    占空比数值，范围 [0, PWM_MAX]
+ */
+void pwm_write_duty(uint32_t channel, uint32_t duty)
+{
+    if (channel >= PWM_CHANNELS)
+        return; // 或者自行处理错误
+
+    if (duty > PWM_MAX)
+        duty = PWM_MAX; // 软件再限制防止越界
+
+    volatile uint32_t *pwm_reg = (volatile uint32_t *)(PWM_BASE_ADDR + PWM_CHANNEL_OFFSET(channel));
+    *pwm_reg = duty;
+}
+
+/**
+ * @brief 读取指定PWM通道当前的占空比设置值
+ *
+ * @param channel PWM通道索引（0 ~ PWM_CHANNELS-1）
+ * @return 当前通道的占空比数值（范围 [0, PWM_MAX]），
+ *         如果通道索引无效，返回0。
+ */
+uint32_t pwm_read_duty(uint32_t channel)
+{
+    if (channel >= PWM_CHANNELS)
+        return 0;
+
+    volatile uint32_t *pwm_reg = (volatile uint32_t *)(PWM_BASE_ADDR + PWM_CHANNEL_OFFSET(channel));
+    return *pwm_reg;
+}
+
+/**
+ * @brief 解析十进制字符串为32位无符号数
+ *
+ * 支持纯数字（0-9），遇到非法字符停止。
+ *
+ * @param[in]  str   输入字符串
+ * @param[out] value 输出结果指针
+ * @retval 0  成功
+ * @retval -1 失败（无合法数字）
+ */
+int parse_str_uint(const char *str, uint32_t *value)
+{
+    if (!str || !value) return -1;
+    *value = 0;
+    int started = 0;
+    while (*str) {
+        char c = *str++;
+        if (c >= '0' && c <= '9') {
+            *value = (*value * 10) + (c - '0');
+            started = 1;
+        } else {
+            break; // 非数字即止
+        }
+    }
+    return started ? 0 : -1;
 }

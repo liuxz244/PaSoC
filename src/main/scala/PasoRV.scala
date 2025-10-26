@@ -429,11 +429,11 @@ class PasoRV extends Module {
     
     when(mem_reg_csr_cmd > 0.U){
         switch(mem_reg_csr_addr) {
-            is(0x300.U) { mstatus  := csr_wdata }
-            is(0x304.U) { mie      := csr_wdata }
-            is(0x305.U) { mtvec    := csr_wdata }
-            is(0x341.U) { mepc     := csr_wdata }
-            is(0x342.U) { mcause   := csr_wdata }
+            is(0x300.U) { mstatus := csr_wdata }
+            is(0x304.U) { mie     := csr_wdata }
+            is(0x305.U) { mtvec   := csr_wdata }
+            is(0x341.U) { mepc    := csr_wdata }
+            is(0x342.U) { mcause  := csr_wdata }
         }
     }  
 

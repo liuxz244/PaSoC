@@ -38,11 +38,20 @@ void timer_irq_handler(void)
 
 int main(void)
 {
-    trap_init();  // 设置trap入口
+    print_str("Interrupt initializing...\n");
+    trap_init();            // 设置trap入口
     interrupt_init(1, 1);   // 按参数使能中断
     plic_init((1<<0) | (1<<7)); // 使能外部中断0与7
     timer_init(20000000LL);  // 20000000周期一次
+
+    unsigned int loop_counter = 0;
+
     while (1) {
-        // do nothing
+        loop_counter++;
+
+        // 每经过一定次数打印状态（避免打印太多）
+        if ((loop_counter % 1000000) == 0) {
+            print_str("Main loop running...\n");
+        }
     }
 }

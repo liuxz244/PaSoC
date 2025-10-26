@@ -77,8 +77,8 @@ timer_irq_handler:
 	sw	ra,12(sp)
 	sw	s0,8(sp)
 	addi	s0,sp,16
-	li	a0,40001536
-	addi	a0,a0,-1536
+	li	a0,29999104
+	addi	a0,a0,896
 	li	a1,0
 	call	timer_init
 	lui	a5,%hi(g_tick)
@@ -102,14 +102,25 @@ timer_irq_handler:
 	addi	sp,sp,16
 	jr	ra
 	.size	timer_irq_handler, .-timer_irq_handler
+	.section	.rodata
+	.align	2
+.LC4:
+	.string	"Interrupt initializing...\n"
+	.align	2
+.LC5:
+	.string	"Main loop running...\n"
+	.text
 	.align	2
 	.globl	main
 	.type	main, @function
 main:
-	addi	sp,sp,-16
-	sw	ra,12(sp)
-	sw	s0,8(sp)
-	addi	s0,sp,16
+	addi	sp,sp,-32
+	sw	ra,28(sp)
+	sw	s0,24(sp)
+	addi	s0,sp,32
+	lui	a5,%hi(.LC4)
+	addi	a0,a5,%lo(.LC4)
+	call	print_str
 	call	trap_init
 	li	a1,1
 	li	a0,1
@@ -120,8 +131,25 @@ main:
 	addi	a0,a0,-768
 	li	a1,0
 	call	timer_init
-.L8:
-	j	.L8
+	sw	zero,-20(s0)
+.L9:
+	lw	a5,-20(s0)
+	addi	a5,a5,1
+	sw	a5,-20(s0)
+	lw	a4,-20(s0)
+	li	a5,1125900288
+	addi	a5,a5,-381
+	mulhu	a5,a4,a5
+	srli	a5,a5,18
+	li	a3,999424
+	addi	a3,a3,576
+	mul	a5,a5,a3
+	sub	a5,a4,a5
+	bne	a5,zero,.L9
+	lui	a5,%hi(.LC5)
+	addi	a0,a5,%lo(.LC5)
+	call	print_str
+	j	.L9
 	.size	main, .-main
 	.ident	"GCC: () 15.1.0"
 	.section	.note.GNU-stack,"",@progbits

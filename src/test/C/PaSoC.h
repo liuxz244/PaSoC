@@ -3,6 +3,10 @@
 #ifndef PASOC_H
 #define PASOC_H
 
+#define PWM_BASE_ADDR    0x20000000UL  // PWM 控制模块基地址
+#define PWM_CHANNEL_OFFSET(ch) ((ch) * 4U) // 每个通道占 4 字节
+#define PWM_MAX          255U
+#define PWM_CHANNELS      2U   // PWM_LEN
 #define UART_BASE_ADDR   0x30000000UL  // 定义UART发送寄存器地址
 #define UART_TX_REG   (*(volatile uint8_t *)(UART_BASE_ADDR + 0x00))
 #define UART_RX_REG   (*(volatile uint8_t *)(UART_BASE_ADDR + 0x04))
@@ -85,8 +89,13 @@ void write_mem16(uint32_t addr, uint16_t value);
 uint16_t read_mem16(uint32_t addr);
 void write_mem8(uint32_t addr, uint8_t value);
 uint8_t read_mem8(uint32_t addr);
+
 void vga_clear(uint8_t r, uint8_t g, uint8_t b);
 void vga_draw_color_bars(void);
+
+void pwm_write_duty(uint32_t channel, uint32_t duty);
+uint32_t pwm_read_duty(uint32_t channel);
+int parse_str_uint(const char *str, uint32_t *value);
 
 
 #endif
