@@ -2,7 +2,7 @@
 
 # 解析命令行参数
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <run|hex|gpio|nvboard> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
+    echo "Usage: $0 <run|sim|gpio|nvboard> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
     exit 1
 fi
 
@@ -29,7 +29,7 @@ while [ "$#" -gt 0 ]; do
             shift
             ;;
         *)
-            echo "Usage: $0 <run|hex|gpio|nvboard> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
+            echo "Usage: $0 <run|sim|gpio|nvboard> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
             exit 1
             ;;
     esac
@@ -92,7 +92,7 @@ case $TestType in
         mv "PaSoCsim.sv" "nvboard/PaSoCsim.sv"
         ;;
     *)
-        echo "Usage: $0 <run|hex|gpio|nvboard> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
+        echo "Usage: $0 <run|sim|gpio|nvboard> <initHexFile> [--freq=27M] [--baud=9600] [--rvDebug]"
         exit 1
         ;;
 esac

@@ -337,7 +337,7 @@ class UartCtrl extends Module {
         is(tsIdle) {
             io.tx := true.B
             when(txFifo.io.deq.valid) {
-                if(sim) { printf("%c", txFifo.io.deq.bits) }
+                if (sim) { printf("%c", txFifo.io.deq.bits) }
                 txState := tsStart
                 txShiftReg := txFifo.io.deq.bits
                 txFifo.io.deq.ready := true.B

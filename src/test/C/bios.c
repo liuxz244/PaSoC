@@ -527,16 +527,13 @@ void timer_irq_handler(void)
 {
     // 打印触发信息
     print_str("\r\n[IRQ] Timer interrupt triggered!\r\n");
-    unsigned int mepc = read_csr(mepc);
-    print_str("[IRQ] mepc=");
-    print_hex(mepc,8);
-    print_str("\r\n");
     
-    timer_init(9999999999LL);
+    timer_init(999999999999999LL);  // 约等于取消中断
 }
 
 
 // 上电运行的main函数
+
 int main()
 {   
     trap_init();   // 初始化trap向量和中断使能
@@ -550,3 +547,22 @@ int main()
 
     return 0;
 }
+
+/*
+int main(void)
+{
+    trap_init();
+    interrupt_init(1, 0);
+    print_str("Auto run startup commands...\r\n");
+
+    Command cmd;
+    parse_command("timer set 0x100000", &cmd);
+    dispatch_command(&cmd);
+
+    while (1) {
+        command_handler();
+    }
+
+    return 0;  // 程序停止在这里
+}
+*/

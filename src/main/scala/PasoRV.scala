@@ -17,6 +17,8 @@ class PasoRV extends Module {
         val exit  = Output(Bool())
     })
 
+    val debugEnabled = sys.env.getOrElse("PASORV_DEBUG", "0") == "1"
+
     val regfile = RegInit(VecInit(Seq.fill(32)(0.U(32.W))))  // rv32i的32个寄存器
 
     // 只实现必须的几个CSR寄存器
@@ -121,16 +123,15 @@ class PasoRV extends Module {
     val if_imm_b_sext = Cat(Fill(19, if_imm_b(11)), if_imm_b, 0.U(1.W))
     val pred_tag = if_reg_pc + if_imm_b_sext
 
-    val pc_redirect = (irq_pending || exe_jmp_flg || pred_negfail || pred_posfail)
+    val pc_redirect = (irq_pending || exe_jmp_flg || pred_negfail || pred_posfail || is_mret)
     val if_pc_next  = MuxCase(if_pc_plus4, Seq(
         // 优先中断＞分支＞跳转＞异常＞流水线暂停
         irq_pending  -> mtvec,  // mtvec应设置为中断处理函数的入口
-        //exe_br_flg   -> exe_br_tag,
         pred_negfail -> exe_br_tag,
         pred_posfail -> (exe_reg_pc + 4.U),
         exe_jmp_flg  -> exe_alu_out,
         is_mret      -> mepc,   // 中断返回
-        (if_inst === ECALL) -> 1998.U,//mtvec,  // ECALL进异常处理向量地址
+        (if_inst === ECALL) -> mtvec,  // ECALL进异常处理向量地址
         stall_flg    -> if_reg_pc,  // 暂停时保持原PC
         if_pred_br   -> pred_tag,   // 预测出的目标地址
     ))
@@ -344,29 +345,31 @@ class PasoRV extends Module {
     pred_posfail := exe_reg_pred_br && !exe_br_flg && exe_is_branch
     exe_br_tag := exe_reg_pc + exe_reg_imm_b_sext
 
-    exe_jmp_flg := (exe_reg_wb_sel === WB_PC) && !stall_bus
-
     bht.io.update := exe_is_branch && !stall_flg  // 根据实际情况更新分支历史
     bht.io.update_pc := exe_reg_pc;  bht.io.update_taken := exe_br_flg
 
+    exe_jmp_flg := (exe_reg_wb_sel === WB_PC) && !stall_bus
+    val exe_is_ret = (exe_reg_alu_fnc === ALU_JALR) && (exe_reg_wb_addr === 0.U)
+
     // 由于BRAM的读取有一周期延迟，需要提前发出地址
     io.addrb := exe_alu_out
-
+    
     // EX/MEM register
+    val exe_flush = irq_pending || is_mret  // mret 时也要清空流水线!!
     when (!(stall_bus || stall_alu)) {
         // 用mux选择是否冲刷流水线
-        mem_reg_pc        := Mux(irq_pending,  0.U,    exe_reg_pc       )
-        mem_reg_inst      := Mux(irq_pending,  BUBBLE, exe_reg_inst     )
-        mem_reg_wb_addr   := Mux(irq_pending,  0.U,    exe_reg_wb_addr  )
-        mem_reg_alu_out   := Mux(irq_pending,  0.U,    exe_alu_out      )
-        mem_reg_rf_wen    := Mux(irq_pending,  REN_X,  exe_reg_rf_wen   )
-        mem_reg_wb_sel    := Mux(irq_pending,  WB_X,   exe_reg_wb_sel   )
-        mem_reg_csr_addr  := Mux(irq_pending,  0.U,    exe_reg_csr_addr )
-        mem_reg_csr_cmd   := Mux(irq_pending,  CSR_X,  exe_reg_csr_cmd  )
-        mem_reg_mem_wen   := Mux(irq_pending,  MEN_X,  exe_reg_mem_wen  )
-        mem_reg_op1_data  := Mux(irq_pending,  0.U,    exe_reg_op1_data )
-        mem_reg_rs2_data  := Mux(irq_pending,  0.U,    exe_reg_rs2_data )
-        mem_reg_mem_width := Mux(irq_pending,  LS_X,   exe_reg_mem_width)
+        mem_reg_pc        := Mux(exe_flush ,  0.U,    exe_reg_pc       )
+        mem_reg_inst      := Mux(exe_flush,  BUBBLE, exe_reg_inst     )
+        mem_reg_wb_addr   := Mux(exe_flush,  0.U,    exe_reg_wb_addr  )
+        mem_reg_alu_out   := Mux(exe_flush,  0.U,    exe_alu_out      )
+        mem_reg_rf_wen    := Mux(exe_flush,  REN_X,  exe_reg_rf_wen   )
+        mem_reg_wb_sel    := Mux(exe_flush,  WB_X,   exe_reg_wb_sel   )
+        mem_reg_csr_addr  := Mux(exe_flush,  0.U,    exe_reg_csr_addr )
+        mem_reg_csr_cmd   := Mux(exe_flush,  CSR_X,  exe_reg_csr_cmd  )
+        mem_reg_mem_wen   := Mux(exe_flush,  MEN_X,  exe_reg_mem_wen  )
+        mem_reg_op1_data  := Mux(exe_flush,  0.U,    exe_reg_op1_data )
+        mem_reg_rs2_data  := Mux(exe_flush,  0.U,    exe_reg_rs2_data )
+        mem_reg_mem_width := Mux(exe_flush,  LS_X,   exe_reg_mem_width)
     }
 
     //**********************************
@@ -404,7 +407,6 @@ class PasoRV extends Module {
     val dbus_rdata = Mux(isH, Mux(isS, halfword.asSInt.pad(32).asUInt, halfword.pad(32)),
         Mux(isB, Mux(isS, byte.asSInt.pad(32).asUInt, byte.pad(32)), io.dbus.rdata)
     )
-
 
     val csr_rdata = MuxCase(0.U(WORD_LEN.W), Seq(
         (mem_reg_csr_addr === 0x300.U) -> mstatus,
@@ -446,16 +448,20 @@ class PasoRV extends Module {
             mcause := "h8000000b".U // 外部中断
         }
         mstatus := mstatus.bitSet(MPIE, mstatus(MIE)).bitSet(MIE, false.B) // 关MIE
+        if (debugEnabled) { printf(p"[IRQ] Interrupt at PC = 0x${Hexadecimal(mem_reg_pc)}\n") }
     }
+
+    val mem_wb = !(stall_bus || stall_alu || is_mret)
 
     // mret指令，中断返回: 为防止过早的判断与跳转/分支冲突，才放在MEM阶段
     when(is_mret) {
         mstatus := mstatus.bitSet(MIE, mstatus(MPIE)).bitSet(MPIE, true.B) // 恢复MIE
+        if (debugEnabled) { printf(p"[IRQ] Returning, mepc = 0x${Hexadecimal(mepc)}\n") }
     }
 
 
     // MEM/WB regsiter
-    when(!(stall_bus || stall_alu)) {
+    when(mem_wb) {
         wb_reg_pc      := mem_reg_pc
         wb_reg_inst    := mem_reg_inst
         wb_reg_wb_addr := mem_reg_wb_addr
@@ -482,8 +488,7 @@ class PasoRV extends Module {
     //**********************************
     // IO & Debug
     io.exit := (wb_reg_inst === UNIMP)  // 退出仿真
-
-    val debugEnabled = sys.env.getOrElse("PASORV_DEBUG", "0") == "1"
+    /*
     if (debugEnabled) {
         printf(p"if_reg_pc        : 0x${Hexadecimal(if_reg_pc)}\n")
         printf(p"id_reg_pc        : 0x${Hexadecimal(id_reg_pc)}\n")
@@ -498,4 +503,5 @@ class PasoRV extends Module {
         printf(p"wb_have_inst     : 0x${Hexadecimal(wb_have_inst)}\n")
         printf("---------\n")
     }
+    */
 }

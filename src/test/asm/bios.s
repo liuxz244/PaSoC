@@ -1652,46 +1652,28 @@ external_irq_handler:
 	.align	2
 .LC64:
 	.string	"\r\n[IRQ] Timer interrupt triggered!\r\n"
-	.align	2
-.LC65:
-	.string	"[IRQ] mepc="
 	.text
 	.align	2
 	.globl	timer_irq_handler
 	.type	timer_irq_handler, @function
 timer_irq_handler:
-	addi	sp,sp,-32
-	sw	ra,28(sp)
-	sw	s0,24(sp)
-	addi	s0,sp,32
+	addi	sp,sp,-16
+	sw	ra,12(sp)
+	sw	s0,8(sp)
+	addi	s0,sp,16
 	lui	a5,%hi(.LC64)
 	addi	a0,a5,%lo(.LC64)
 	call	print_str
- #APP
-# 523 "src/test/C/bios.c" 1
-	csrr a5, mepc
-# 0 "" 2
- #NO_APP
-	sw	a5,-20(s0)
-	lw	a5,-20(s0)
-	sw	a5,-24(s0)
 	lui	a5,%hi(.LC65)
-	addi	a0,a5,%lo(.LC65)
-	call	print_str
-	li	a1,8
-	lw	a0,-24(s0)
-	call	print_hex
-	lui	a5,%hi(.LC2)
-	addi	a0,a5,%lo(.LC2)
-	call	print_str
-	li	a0,1410064384
-	addi	a0,a0,1023
-	li	a1,2
+	lw	a4,%lo(.LC65)(a5)
+	lw	a5,%lo(.LC65+4)(a5)
+	mv	a0,a4
+	mv	a1,a5
 	call	timer_init
 	nop
-	lw	ra,28(sp)
-	lw	s0,24(sp)
-	addi	sp,sp,32
+	lw	ra,12(sp)
+	lw	s0,8(sp)
+	addi	sp,sp,16
 	jr	ra
 	.size	timer_irq_handler, .-timer_irq_handler
 	.section	.rodata
@@ -1720,5 +1702,10 @@ main:
 	.size	main, .-main
 	.local	last_cmd.0
 	.comm	last_cmd.0,32,4
+	.section	.rodata
+	.align	3
+.LC65:
+	.word	-1530494977
+	.word	232830
 	.ident	"GCC: () 15.1.0"
 	.section	.note.GNU-stack,"",@progbits
