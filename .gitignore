@@ -19,3 +19,7 @@ PaSoCsim.sv
 # 忽略build文件夹的内容，但保留文件夹本身
 build/*
 !build/.gitkeep
+
+# Generated CoreMark firmware
+/src/test/hex/inst/coremark.hex
+/src/test/hex/data/coremark.hex

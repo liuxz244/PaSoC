@@ -1,0 +1,3 @@
+CRC PASS (validation); cycles=552301986; iterations=1300; seconds=11.046040
+CoreMark/MHz = 2.353785; at 50 MHz = 117.689238 iterations/s
+Valid duration and upstream validation PASS

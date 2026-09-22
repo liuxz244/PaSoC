@@ -1,0 +1,19 @@
+PaSoC CoreMark clock Hz: 50000000
+2K validation run parameters for coremark.
+CoreMark Size    : 666
+Total ticks      : 552301986
+Total time (secs): 11
+Iterations/Sec   : 118
+Iterations       : 1300
+Compiler version : GCC 14.2.0
+Compiler flags   : -O3 -march=rv32im_zicsr -mabi=ilp32 -msmall-data-limit=0 -ffreestanding -fno-builtin -fno-common -ffunction-sections -fdata-sections
+Memory location  : ITCM code; DTCM data and stack
+seedcrc          : 0x18f2
+[0]crclist       : 0xe3c1
+[0]crcmatrix     : 0x0747
+[0]crcstate      : 0x8d84
+[0]crcfinal      : 0x3942
+Correct operation validated. See README.md for run and reporting rules.
+PASOC_CYCLES_HI=0 PASOC_CYCLES_LO=552301986
+
+SIM_EXIT cycles=552426579
